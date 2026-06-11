@@ -1,15 +1,4 @@
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: web_db
-    restart: always
-    environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: 123
-      POSTGRES_DB: banco_web
-    ports:
-      - "5432:5432"
-
   backend:
     build: ./backend
     container_name: backend
@@ -18,8 +7,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-    depends_on:
-      - db
+    env_file:
+      - .env
 
   frontend:
     build: ./frontend
