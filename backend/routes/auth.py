@@ -1,13 +1,17 @@
+import os
 import hashlib
 import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel
 from database import get_conn
+from dotenv import load_dotenv
+
+load_dotenv()
 
 router = APIRouter()
 
-SECRET_KEY = "chave_secreta"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 
 class LoginRequest(BaseModel):
