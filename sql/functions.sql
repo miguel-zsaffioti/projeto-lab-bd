@@ -1,13 +1,3 @@
--- =========================================================
--- SCC-541 Lab BD — Funções Armazenadas para Dashboard
--- CONCEITO: procedimentos e funções com parâmetros
--- =========================================================
-
--- -------------------------------------------------------
--- fn_dashboard_escuderia
--- Retorna vitórias, pilotos distintos e período de atividade
--- CONCEITO: função com parâmetro; agregação sobre RESULTS
--- -------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_dashboard_escuderia(p_constructor_id VARCHAR)
 RETURNS TABLE (
     total_vitorias   BIGINT,
@@ -16,7 +6,6 @@ RETURNS TABLE (
     ultimo_ano       INTEGER
 ) AS $$
 BEGIN
-    -- CONCEITO: JOINs e agregações para calcular estatísticas
     RETURN QUERY
     SELECT
         COUNT(*) FILTER (WHERE r.position = 1)          AS total_vitorias,
@@ -29,11 +18,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- -------------------------------------------------------
--- fn_dashboard_piloto
--- Retorna período de atividade do piloto
--- CONCEITO: função com parâmetro; agregação sobre RESULTS
--- -------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_dashboard_piloto(p_driver_id VARCHAR)
 RETURNS TABLE (
     primeiro_ano INTEGER,
@@ -50,13 +34,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- -------------------------------------------------------
--- fn_stats_piloto_por_circuito
--- Para cada ano e circuito em que o piloto correu:
---   pontos obtidos, vitórias e total de corridas
--- CONCEITO: função com parâmetro; JOIN múltiplo + GROUP BY
--- Usada na tela de dashboard do piloto (detalhe)
--- -------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_stats_piloto_por_circuito(p_driver_id VARCHAR)
 RETURNS TABLE (
     ano            INTEGER,
