@@ -273,16 +273,6 @@ function DashboardPiloto({ dados }) {
   )
 }
 
-// ─── Relatórios ────────────────────────────────────────────
-function Relatorios({ token, usuario }) {
-  const tipo = (usuario.tipo || '').toLowerCase()
-
-  const relatorioPorTipo = {
-    admin:    ['Resultados por status', 'Aeroportos próximos a cidade', 'Hierarquia de corridas'],
-    escuderia: ['Pilotos com vitórias', 'Resultados por status da escuderia'],
-    piloto:   ['Pontos por ano', 'Resultados por status do piloto'],
-  }
-
   const lista = relatorioPorTipo[tipo] || []
 
   return (
@@ -299,7 +289,6 @@ function Relatorios({ token, usuario }) {
       </div>
     </div>
   )
-}
 
 // ═══════════════════════════════════════════════════════════
 // ─── TELA DE AÇÕES ─────────────────────────────────────────
@@ -597,7 +586,7 @@ function AcoesEscuderia({ token }) {
 function FormBuscarPiloto({ token }) {
   const [sobrenome, setSobrenome] = useState('')
   const [loading, setLoading]     = useState(false)
-  const [resultado, setResultado] = useState(null)   // array | { mensagem }
+  const [resultado, setResultado] = useState(null)  
   const [erro, setErro]           = useState('')
 
   async function handleBusca(e) {
