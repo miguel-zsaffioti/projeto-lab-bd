@@ -66,27 +66,34 @@ def buscar_piloto_por_sobrenome(
     sobrenome: str, 
     usuario: dict = Depends(requer_permissao(["escuderia"])) # <-- TRAVA AQUI
 ):
-    id_escuderia = usuario.get("id_original")
-    
+    id_original = usuario.get("id_original")
+
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Resolve o constructor_id real a partir do id surrogate (mesmo padrão do dashboard)
+            cur.execute("SELECT constructor_id FROM constructors WHERE id = %s", (id_original,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Escuderia não encontrada.")
+            id_escuderia = row["constructor_id"]
+
             cur.execute("""
                 SELECT DISTINCT 
                     d.given_name || ' ' || d.family_name AS nome_completo,
-                    d.date_of_birth AS data_nascimento,
-                    d.country_id AS pais_nacionalidade
+                    d.dob AS data_nascimento,
+                    d.nationality AS pais_nacionalidade
                 FROM drivers d
                 JOIN results r ON d.driver_id = r.driver_id
                 WHERE d.family_name ILIKE %s 
                   AND r.constructor_id = %s
             """, (f"%{sobrenome}%", id_escuderia))
-            
+
             pilotos = cur.fetchall()
-            
+
             if not pilotos:
                 return {"mensagem": "Nenhum piloto com esse sobrenome correu por esta escuderia."}
-                
+
             return [dict(p) for p in pilotos]
     finally:
         conn.close()
