@@ -1,9 +1,11 @@
 # routes/acoes.py
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from database import get_conn
-from .auth import obter_usuario_atual, requer_permissao
-from schemas import EscuderiaCreate, PilotoCreate
+from routes.auth import obter_usuario_atual, requer_permissao
+from schemas import EscuderiaCreate, PilotoCreate 
 import psycopg2.extras
+import codecs
+import csv
 
 router = APIRouter()
 
@@ -86,5 +88,74 @@ def buscar_piloto_por_sobrenome(
                 return {"mensagem": "Nenhum piloto com esse sobrenome correu por esta escuderia."}
                 
             return [dict(p) for p in pilotos]
+    finally:
+        conn.close()
+
+@router.post("/escuderia/pilotos/upload", status_code=201)
+def upload_pilotos_csv(
+    arquivo: UploadFile = File(...),
+    usuario: dict = Depends(requer_permissao(["escuderia"]))
+):
+    # Trava de segurança para aceitar apenas CSV
+    if not arquivo.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="O arquivo deve ser um .csv")
+
+    conn = get_conn()
+    try:
+        # Lendo o arquivo em memória e decodificando
+        csv_reader = csv.reader(codecs.iterdecode(arquivo.file, 'utf-8'))
+        
+        pilotos_inseridos = 0
+
+        with conn.cursor() as cur:
+            for linha in csv_reader:
+                # Pula linhas vazias ou mal formatadas
+                if len(linha) < 5:
+                    continue
+                
+                # O PDF pede a ordem: driver_ref, given_name, family_name, date_of_birth, country_id
+                driver_ref = linha[0].strip()
+                given_name = linha[1].strip()
+                family_name = linha[2].strip()
+                dob = linha[3].strip()
+                nationality = linha[4].strip()
+
+                # REGRA DO ENUNCIADO: Verificar se o piloto já existe pelo nome e sobrenome
+                cur.execute("""
+                    SELECT 1 FROM drivers 
+                    WHERE given_name ILIKE %s AND family_name ILIKE %s
+                """, (given_name, family_name))
+                
+                if cur.fetchone():
+                    # Se achar, cancela TUDO dando um rollback automático ao subir a exceção
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Inserção cancelada: O piloto {given_name} {family_name} já existe na base."
+                    )
+
+                # Como o seu banco exige a coluna 'driver_id' (que é UNIQUE NOT NULL), 
+                # vamos usar o próprio driver_ref para preencher ela e não quebrar o banco.
+                cur.execute("""
+                    INSERT INTO drivers (driver_id, driver_ref, given_name, family_name, dob, nationality)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (driver_ref, driver_ref, given_name, family_name, dob, nationality))
+                
+                pilotos_inseridos += 1
+            
+            # Se o loop terminar sem esbarrar em nenhum piloto repetido, ele salva no banco
+            conn.commit()
+            
+            return {
+                "mensagem": "Arquivo processado com sucesso!", 
+                "pilotos_inseridos": pilotos_inseridos
+            }
+            
+    except HTTPException as e:
+        # Repassa o erro 400 de piloto duplicado para a interface
+        conn.rollback()
+        raise e
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar arquivo: {str(e)}")
     finally:
         conn.close()
