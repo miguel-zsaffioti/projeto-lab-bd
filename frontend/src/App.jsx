@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import Relatorios from './Relatorios' 
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -146,11 +147,6 @@ function TelaLogin({ onLogin }) {
             {loading ? 'Verificando…' : 'Entrar'}
           </button>
         </form>
-        <div className="login-hint">
-          <span className="badge badge-admin">Admin</span> admin &nbsp;·&nbsp;
-          <span className="badge badge-escuderia">Escuderia</span> ferrari_c &nbsp;·&nbsp;
-          <span className="badge badge-piloto">Piloto</span> hamilton_d
-        </div>
       </div>
     </div>
   )
@@ -268,34 +264,6 @@ function DashboardPiloto({ dados }) {
           ])}
         />
       </Secao>
-    </div>
-  )
-}
-
-// ─── Relatórios ─────────────────
-function Relatorios({ token, usuario }) {
-  const tipo = (usuario.tipo || '').toLowerCase()
-
-  const relatorioPorTipo = {
-    admin:    ['Resultados por status', 'Aeroportos próximos a cidade', 'Hierarquia de corridas'],
-    escuderia: ['Pilotos com vitórias', 'Resultados por status da escuderia'],
-    piloto:   ['Pontos por ano', 'Resultados por status do piloto'],
-  }
-
-  const lista = relatorioPorTipo[tipo] || []
-
-  return (
-    <div className="dashboard">
-      <h2 className="dashboard-titulo">Relatórios</h2>
-      <div className="relatorios-lista">
-        {lista.map((nome, i) => (
-          <div key={i} className="relatorio-card">
-            <span className="relatorio-num">R{i + 1}</span>
-            <span className="relatorio-nome">{nome}</span>
-            <button className="btn-secondary" disabled>Em breve</button>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

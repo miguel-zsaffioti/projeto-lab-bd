@@ -296,4 +296,16 @@ body {
   content: '';
   animation: pulse 1s infinite;
 }
+.input-busca {
+  background: #111;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  color: var(--text);
+  font-size: .9rem;
+  flex: 1;
+  outline: none;
+  padding: .6rem .8rem;
+  transition: border-color .15s;
+}
+.input-busca:focus { border-color: var(--red); }
 @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
