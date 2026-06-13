@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routes import auth, dashboard, reports 
+from routes import auth, dashboard, reports, actions
 
 load_dotenv()
 
@@ -24,3 +24,5 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth")
 app.include_router(dashboard.router)
 app.include_router(reports.router)  
+app.include_router(actions.router, prefix="/acoes")
+

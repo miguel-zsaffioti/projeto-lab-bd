@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import Relatorios from './Relatorios' 
 
@@ -14,12 +14,12 @@ function parseJwt(token) {
 
 // ─── App root ──────────────────────────────────────────────
 export default function App() {
-  const [token, setToken]       = useState(() => localStorage.getItem('token'))
-  const [usuario, setUsuario]   = useState(() => {
+  const [token, setToken]     = useState(() => localStorage.getItem('token'))
+  const [usuario, setUsuario] = useState(() => {
     const t = localStorage.getItem('token')
     return t ? parseJwt(t) : null
   })
-  const [tela, setTela]         = useState('dashboard') 
+  const [tela, setTela] = useState('dashboard')
 
   function handleLogin(novoToken) {
     localStorage.setItem('token', novoToken)
@@ -46,8 +46,9 @@ export default function App() {
     <div className="app">
       <Navbar usuario={usuario} tela={tela} setTela={setTela} onLogout={handleLogout} />
       <main className="main-content">
-        {tela === 'dashboard'   && <Dashboard token={token} usuario={usuario} />}
-        {tela === 'relatorios'  && <Relatorios token={token} usuario={usuario} />}
+        {tela === 'dashboard' && <Dashboard token={token} usuario={usuario} />}
+        {tela === 'relatorios' && <Relatorios token={token} usuario={usuario} />}
+        {tela === 'acoes' && <Acoes token={token} usuario={usuario} />}
       </main>
     </div>
   )
@@ -55,9 +56,12 @@ export default function App() {
 
 // ─── Navbar ────────────────────────────────────────────────
 function Navbar({ usuario, tela, setTela, onLogout }) {
-  const badgeMap = { admin: 'badge-admin', escuderia: 'badge-escuderia', piloto: 'badge-piloto' }
+  const badgeMap  = { admin: 'badge-admin', escuderia: 'badge-escuderia', piloto: 'badge-piloto' }
   const tipoLabel = { admin: 'Admin', escuderia: 'Escuderia', piloto: 'Piloto' }
   const tipo = (usuario.tipo || '').toLowerCase()
+
+  // Pilotos não têm acesso à página de ações
+  const mostrarAcoes = tipo !== 'piloto'
 
   return (
     <nav className="navbar">
@@ -74,6 +78,12 @@ function Navbar({ usuario, tela, setTela, onLogout }) {
           className={`tab ${tela === 'relatorios' ? 'tab--active' : ''}`}
           onClick={() => setTela('relatorios')}
         >Relatórios</button>
+        {mostrarAcoes && (
+          <button
+            className={`tab ${tela === 'acoes' ? 'tab--active' : ''}`}
+            onClick={() => setTela('acoes')}
+          >Ações</button>
+        )}
       </div>
       <div className="navbar-user">
         <span className={`badge ${badgeMap[tipo] || ''}`}>{tipoLabel[tipo] || tipo}</span>
@@ -86,10 +96,10 @@ function Navbar({ usuario, tela, setTela, onLogout }) {
 
 // ─── Tela Login ────────────────────────────────────────────
 function TelaLogin({ onLogin }) {
-  const [login, setLogin]       = useState('')
-  const [senha, setSenha]       = useState('')
-  const [erro, setErro]         = useState('')
-  const [loading, setLoading]   = useState(false)
+  const [login, setLogin]     = useState('')
+  const [senha, setSenha]     = useState('')
+  const [erro, setErro]       = useState('')
+  const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -154,8 +164,8 @@ function TelaLogin({ onLogin }) {
 
 // ─── Dashboard (despacha por tipo) ─────────────────────────
 function Dashboard({ token, usuario }) {
-  const [dados, setDados]   = useState(null)
-  const [erro, setErro]     = useState('')
+  const [dados, setDados] = useState(null)
+  const [erro, setErro]   = useState('')
   const tipo = (usuario.tipo || '').toLowerCase()
 
   useEffect(() => {
@@ -185,37 +195,32 @@ function DashboardAdmin({ dados }) {
     <div className="dashboard">
       <h2 className="dashboard-titulo">Painel do Administrador</h2>
 
-      {/* Cards de totais */}
       <div className="cards-grid">
-        <Card label="Pilotos"     valor={dados.totais?.total_pilotos}     />
-        <Card label="Escuderias"  valor={dados.totais?.total_escuderias}  />
-        <Card label="Temporadas"  valor={dados.totais?.total_temporadas}  />
+        <Card label="Pilotos"         valor={dados.totais?.total_pilotos}    />
+        <Card label="Escuderias"      valor={dados.totais?.total_escuderias} />
+        <Card label="Temporadas"      valor={dados.totais?.total_temporadas} />
         <Card label="Temporada atual" valor={dados.temporada_recente} destaque />
       </div>
 
-      {/* Corridas da temporada */}
       <Secao titulo={`Corridas — Temporada ${dados.temporada_recente}`}>
         <Tabela
           colunas={['Corrida', 'Circuito', 'Data', 'Horário', 'Voltas']}
           linhas={(dados.corridas || []).map(r => [
             r.corrida, r.circuito,
-            r.data     ? new Date(r.data).toLocaleDateString('pt-BR') : '—',
-            r.horario  || '—',
+            r.data    ? new Date(r.data).toLocaleDateString('pt-BR') : '—',
+            r.horario || '—',
             r.max_voltas ?? '—',
           ])}
         />
       </Secao>
 
       <div className="duas-colunas">
-        {/* Escuderias */}
         <Secao titulo="Escuderias — Pontos">
           <Tabela
             colunas={['Escuderia', 'Pontos']}
             linhas={(dados.escuderias || []).map(e => [e.escuderia, e.total_pontos])}
           />
         </Secao>
-
-        {/* Pilotos */}
         <Secao titulo="Pilotos — Pontos">
           <Tabela
             colunas={['Piloto', 'Pontos']}
@@ -234,10 +239,10 @@ function DashboardEscuderia({ dados }) {
       <h2 className="dashboard-titulo">{dados.nome}</h2>
       <p className="dashboard-sub">Escuderia</p>
       <div className="cards-grid">
-        <Card label="Vitórias"       valor={dados.total_vitorias} />
-        <Card label="Pilotos"        valor={dados.total_pilotos}  />
-        <Card label="Primeira temporada" valor={dados.primeiro_ano} />
-        <Card label="Última temporada"   valor={dados.ultimo_ano}   />
+        <Card label="Vitórias"           valor={dados.total_vitorias} />
+        <Card label="Pilotos"            valor={dados.total_pilotos}  />
+        <Card label="Primeira temporada" valor={dados.primeiro_ano}   />
+        <Card label="Última temporada"   valor={dados.ultimo_ano}     />
       </div>
     </div>
   )
@@ -264,6 +269,531 @@ function DashboardPiloto({ dados }) {
           ])}
         />
       </Secao>
+    </div>
+  )
+}
+
+// ─── Relatórios ────────────────────────────────────────────
+function Relatorios({ token, usuario }) {
+  const tipo = (usuario.tipo || '').toLowerCase()
+
+  const relatorioPorTipo = {
+    admin:    ['Resultados por status', 'Aeroportos próximos a cidade', 'Hierarquia de corridas'],
+    escuderia: ['Pilotos com vitórias', 'Resultados por status da escuderia'],
+    piloto:   ['Pontos por ano', 'Resultados por status do piloto'],
+  }
+
+  const lista = relatorioPorTipo[tipo] || []
+
+  return (
+    <div className="dashboard">
+      <h2 className="dashboard-titulo">Relatórios</h2>
+      <div className="relatorios-lista">
+        {lista.map((nome, i) => (
+          <div key={i} className="relatorio-card">
+            <span className="relatorio-num">R{i + 1}</span>
+            <span className="relatorio-nome">{nome}</span>
+            <button className="btn-secondary" disabled>Em breve</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// ─── TELA DE AÇÕES ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+function Acoes({ token, usuario }) {
+  const tipo = (usuario.tipo || '').toLowerCase()
+
+  return (
+    <div className="dashboard">
+      <h2 className="dashboard-titulo">Ações</h2>
+      <p className="dashboard-sub">
+        {tipo === 'admin'
+          ? 'Cadastro de escuderias e pilotos'
+          : 'Consulta e inserção de pilotos da sua escuderia'}
+      </p>
+
+      {tipo === 'admin'    && <AcoesAdmin token={token} />}
+      {tipo === 'escuderia' && <AcoesEscuderia token={token} />}
+    </div>
+  )
+}
+
+// ─── Ações Admin ───────────────────────────────────────────
+function AcoesAdmin({ token }) {
+  return (
+    <div className="acoes-grid">
+      <FormCadastrarEscuderia token={token} />
+      <FormCadastrarPiloto    token={token} />
+    </div>
+  )
+}
+
+// ─── Formulário: Cadastrar Escuderia (Admin) ───────────────
+function FormCadastrarEscuderia({ token }) {
+  const inicial = { constructor_id: '', name: '', nationality: '', wikipedia_url: '' }
+  const [form, setForm]       = useState(inicial)
+  const [loading, setLoading] = useState(false)
+  const [feedback, setFeedback] = useState(null) // { ok: bool, msg: string }
+
+  function handleChange(e) {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setFeedback(null)
+    setLoading(true)
+    try {
+      const res = await fetch(`${API}/acoes/admin/escuderias`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setFeedback({ ok: true, msg: data.mensagem || 'Escuderia cadastrada com sucesso!' })
+        setForm(inicial)
+      } else {
+        setFeedback({ ok: false, msg: data.detail || 'Erro ao cadastrar escuderia.' })
+      }
+    } catch {
+      setFeedback({ ok: false, msg: 'Não foi possível conectar ao servidor.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="acao-card">
+      <div className="acao-card-header">
+        <span className="acao-icone">🏎</span>
+        <div>
+          <h3 className="acao-titulo">Nova Escuderia</h3>
+          <p className="acao-sub">Adiciona uma entrada na tabela CONSTRUCTORS</p>
+        </div>
+      </div>
+
+      <form className="acao-form" onSubmit={handleSubmit}>
+        <div className="form-campo">
+          <label htmlFor="esc-constructor_id">Constructor ID</label>
+          <input
+            id="esc-constructor_id"
+            name="constructor_id"
+            value={form.constructor_id}
+            onChange={handleChange}
+            placeholder="ex: mclaren"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div className="form-campo">
+          <label htmlFor="esc-name">Nome</label>
+          <input
+            id="esc-name"
+            name="name"
+            value={form.name}
+            onChange={handleChange}
+            placeholder="ex: McLaren"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div className="form-campo">
+          <label htmlFor="esc-nationality">Nacionalidade</label>
+          <input
+            id="esc-nationality"
+            name="nationality"
+            value={form.nationality}
+            onChange={handleChange}
+            placeholder="ex: British"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div className="form-campo">
+          <label htmlFor="esc-wikipedia_url">URL Wikipedia <span className="opcional">(opcional)</span></label>
+          <input
+            id="esc-wikipedia_url"
+            name="wikipedia_url"
+            value={form.wikipedia_url}
+            onChange={handleChange}
+            placeholder="https://en.wikipedia.org/wiki/…"
+            disabled={loading}
+          />
+        </div>
+
+        {feedback && (
+          <p className={feedback.ok ? 'feedback-ok' : 'feedback-erro'}>
+            {feedback.msg}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !form.constructor_id || !form.name || !form.nationality}
+        >
+          {loading ? 'Cadastrando…' : 'Cadastrar Escuderia'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ─── Formulário: Cadastrar Piloto (Admin) ──────────────────
+function FormCadastrarPiloto({ token }) {
+  const inicial = { driver_ref: '', given_name: '', family_name: '', dob: '', nationality: '' }
+  const [form, setForm]         = useState(inicial)
+  const [loading, setLoading]   = useState(false)
+  const [feedback, setFeedback] = useState(null)
+
+  function handleChange(e) {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setFeedback(null)
+    setLoading(true)
+    try {
+      // driver_id e driver_ref são o mesmo valor no schema atual
+      const payload = { ...form, driver_id: form.driver_ref }
+      const res = await fetch(`${API}/acoes/admin/pilotos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setFeedback({ ok: true, msg: data.mensagem || 'Piloto cadastrado com sucesso!' })
+        setForm(inicial)
+      } else {
+        setFeedback({ ok: false, msg: data.detail || 'Erro ao cadastrar piloto.' })
+      }
+    } catch {
+      setFeedback({ ok: false, msg: 'Não foi possível conectar ao servidor.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const camposObrigatorios = form.driver_ref && form.given_name && form.family_name && form.dob && form.nationality
+
+  return (
+    <div className="acao-card">
+      <div className="acao-card-header">
+        <span className="acao-icone">🪖</span>
+        <div>
+          <h3 className="acao-titulo">Novo Piloto</h3>
+          <p className="acao-sub">Adiciona uma entrada na tabela DRIVERS</p>
+        </div>
+      </div>
+
+      <form className="acao-form" onSubmit={handleSubmit}>
+        <div className="form-campo">
+          <label htmlFor="pil-driver_ref">Driver Ref</label>
+          <input
+            id="pil-driver_ref"
+            name="driver_ref"
+            value={form.driver_ref}
+            onChange={handleChange}
+            placeholder="ex: hamilton"
+            required
+            disabled={loading}
+          />
+        </div>
+        <div className="form-linha-dupla">
+          <div className="form-campo">
+            <label htmlFor="pil-given_name">Nome</label>
+            <input
+              id="pil-given_name"
+              name="given_name"
+              value={form.given_name}
+              onChange={handleChange}
+              placeholder="ex: Lewis"
+              required
+              disabled={loading}
+            />
+          </div>
+          <div className="form-campo">
+            <label htmlFor="pil-family_name">Sobrenome</label>
+            <input
+              id="pil-family_name"
+              name="family_name"
+              value={form.family_name}
+              onChange={handleChange}
+              placeholder="ex: Hamilton"
+              required
+              disabled={loading}
+            />
+          </div>
+        </div>
+        <div className="form-linha-dupla">
+          <div className="form-campo">
+            <label htmlFor="pil-dob">Data de Nascimento</label>
+            <input
+              id="pil-dob"
+              type="date"
+              name="dob"
+              value={form.dob}
+              onChange={handleChange}
+              required
+              disabled={loading}
+            />
+          </div>
+          <div className="form-campo">
+            <label htmlFor="pil-nationality">Nacionalidade</label>
+            <input
+              id="pil-nationality"
+              name="nationality"
+              value={form.nationality}
+              onChange={handleChange}
+              placeholder="ex: British"
+              required
+              disabled={loading}
+            />
+          </div>
+        </div>
+
+        {feedback && (
+          <p className={feedback.ok ? 'feedback-ok' : 'feedback-erro'}>
+            {feedback.msg}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !camposObrigatorios}
+        >
+          {loading ? 'Cadastrando…' : 'Cadastrar Piloto'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ─── Ações Escuderia ───────────────────────────────────────
+function AcoesEscuderia({ token }) {
+  return (
+    <div className="acoes-grid">
+      <FormBuscarPiloto token={token} />
+      <FormUploadPilotos token={token} />
+    </div>
+  )
+}
+
+// ─── Formulário: Buscar Piloto por Sobrenome (Escuderia) ───
+function FormBuscarPiloto({ token }) {
+  const [sobrenome, setSobrenome] = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [resultado, setResultado] = useState(null)   // array | { mensagem }
+  const [erro, setErro]           = useState('')
+
+  async function handleBusca(e) {
+    e.preventDefault()
+    setErro('')
+    setResultado(null)
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ sobrenome })
+      const res = await fetch(`${API}/acoes/escuderia/pilotos/busca?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setErro(data.detail || 'Erro na consulta.')
+      } else if (data.mensagem) {
+        setResultado({ mensagem: data.mensagem })
+      } else {
+        setResultado(data)
+      }
+    } catch {
+      setErro('Não foi possível conectar ao servidor.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function formatarData(iso) {
+    if (!iso) return '—'
+    try { return new Date(iso).toLocaleDateString('pt-BR') } catch { return iso }
+  }
+
+  return (
+    <div className="acao-card">
+      <div className="acao-card-header">
+        <span className="acao-icone">🔍</span>
+        <div>
+          <h3 className="acao-titulo">Buscar Piloto</h3>
+          <p className="acao-sub">Consulta pilotos que já correram por esta escuderia</p>
+        </div>
+      </div>
+
+      <form className="acao-form" onSubmit={handleBusca}>
+        <div className="form-campo">
+          <label htmlFor="busca-sobrenome">Sobrenome do piloto</label>
+          <input
+            id="busca-sobrenome"
+            value={sobrenome}
+            onChange={e => setSobrenome(e.target.value)}
+            placeholder="ex: Hamilton"
+            required
+            disabled={loading}
+          />
+        </div>
+
+        {erro && <p className="feedback-erro">{erro}</p>}
+
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !sobrenome.trim()}
+        >
+          {loading ? 'Buscando…' : 'Buscar Piloto'}
+        </button>
+      </form>
+
+      {/* Resultado da busca */}
+      {resultado && (
+        <div className="acao-resultado">
+          {resultado.mensagem ? (
+            <p className="estado-vazio" style={{ padding: '1rem 0' }}>{resultado.mensagem}</p>
+          ) : (
+            <Tabela
+              colunas={['Nome Completo', 'Data de Nascimento', 'Nacionalidade']}
+              linhas={resultado.map(p => [
+                p.nome_completo,
+                formatarData(p.data_nascimento),
+                p.pais_nacionalidade,
+              ])}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Formulário: Upload de Pilotos via CSV (Escuderia) ─────
+function FormUploadPilotos({ token }) {
+  const [arquivo, setArquivo]     = useState(null)
+  const [loading, setLoading]     = useState(false)
+  const [feedback, setFeedback]   = useState(null)
+  const inputRef                  = useRef(null)
+
+  function handleArquivo(e) {
+    const f = e.target.files[0]
+    setArquivo(f || null)
+    setFeedback(null)
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    const f = e.dataTransfer.files[0]
+    if (f) { setArquivo(f); setFeedback(null) }
+  }
+
+  function handleDragOver(e) { e.preventDefault() }
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!arquivo) return
+    setFeedback(null)
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('arquivo', arquivo)
+
+      const res = await fetch(`${API}/acoes/escuderia/pilotos/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setFeedback({
+          ok: true,
+          msg: `${data.mensagem} (${data.pilotos_inseridos} piloto(s) inserido(s))`,
+        })
+        setArquivo(null)
+        if (inputRef.current) inputRef.current.value = ''
+      } else {
+        setFeedback({ ok: false, msg: data.detail || 'Erro ao processar arquivo.' })
+      }
+    } catch {
+      setFeedback({ ok: false, msg: 'Não foi possível conectar ao servidor.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="acao-card">
+      <div className="acao-card-header">
+        <span className="acao-icone">📂</span>
+        <div>
+          <h3 className="acao-titulo">Importar Pilotos</h3>
+          <p className="acao-sub">Insere pilotos em lote a partir de um arquivo CSV</p>
+        </div>
+      </div>
+
+      <form className="acao-form" onSubmit={handleSubmit}>
+        {/* Drop zone */}
+        <div
+          className={`dropzone ${arquivo ? 'dropzone--ativo' : ''}`}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onClick={() => inputRef.current?.click()}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={handleArquivo}
+            disabled={loading}
+          />
+          {arquivo ? (
+            <span className="dropzone-nome">📄 {arquivo.name}</span>
+          ) : (
+            <>
+              <span className="dropzone-icone">⬆</span>
+              <span className="dropzone-texto">Arraste o CSV ou clique para selecionar</span>
+            </>
+          )}
+        </div>
+
+        {/* Formato esperado */}
+        <div className="formato-csv">
+          <span className="formato-label">Formato esperado (sem cabeçalho):</span>
+          <code className="formato-code">driver_ref, nome, sobrenome, data_nasc, nacionalidade</code>
+        </div>
+
+        {feedback && (
+          <p className={feedback.ok ? 'feedback-ok' : 'feedback-erro'}>
+            {feedback.msg}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={loading || !arquivo}
+        >
+          {loading ? 'Enviando…' : 'Enviar Arquivo'}
+        </button>
+      </form>
     </div>
   )
 }
