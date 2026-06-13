@@ -92,3 +92,16 @@ def logout(usuario: dict = Depends(obter_usuario_atual)):
             return {"mensagem": "Logout registrado com sucesso no banco de dados."}
     finally:
         conn.close()
+
+def requer_permissao(tipos_permitidos: list[str]):
+    """
+    Verifica se o usuário logado possui um dos tipos permitidos.
+    """
+    def verificador(usuario: dict = Depends(obter_usuario_atual)):
+        if usuario.get("tipo", "").lower() not in tipos_permitidos:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Acesso negado. Requer privilégios de: {', '.join(tipos_permitidos)}"
+            )
+        return usuario
+    return verificador
