@@ -273,23 +273,6 @@ function DashboardPiloto({ dados }) {
   )
 }
 
-  const lista = relatorioPorTipo[tipo] || []
-
-  return (
-    <div className="dashboard">
-      <h2 className="dashboard-titulo">Relatórios</h2>
-      <div className="relatorios-lista">
-        {lista.map((nome, i) => (
-          <div key={i} className="relatorio-card">
-            <span className="relatorio-num">R{i + 1}</span>
-            <span className="relatorio-nome">{nome}</span>
-            <button className="btn-secondary" disabled>Em breve</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
 // ═══════════════════════════════════════════════════════════
 // ─── TELA DE AÇÕES ─────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════
@@ -586,7 +569,7 @@ function AcoesEscuderia({ token }) {
 function FormBuscarPiloto({ token }) {
   const [sobrenome, setSobrenome] = useState('')
   const [loading, setLoading]     = useState(false)
-  const [resultado, setResultado] = useState(null)  
+  const [resultado, setResultado] = useState(null)   // array | { mensagem }
   const [erro, setErro]           = useState('')
 
   async function handleBusca(e) {
