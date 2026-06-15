@@ -1,11 +1,5 @@
--- =========================================================
--- SCC-541 Laboratório de Bases de Dados — Projeto Final
--- Script de inicialização completo
--- =========================================================
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- =========================================================
--- PARTE 1: REMOÇÃO DE TABELAS (ordem respeita FKs)
--- =========================================================
 DROP TABLE IF EXISTS users_log             CASCADE;
 DROP TABLE IF EXISTS users                 CASCADE;
 DROP TABLE IF EXISTS constructor_standings CASCADE;
@@ -26,10 +20,6 @@ DROP TABLE IF EXISTS iso_language_codes    CASCADE;
 DROP TABLE IF EXISTS regions               CASCADE;
 DROP TABLE IF EXISTS countries             CASCADE;
 DROP TABLE IF EXISTS continents            CASCADE;
-
--- =========================================================
--- PARTE 2: CRIAÇÃO DAS TABELAS GEOGRÁFICAS
--- =========================================================
 
 CREATE TABLE continents (
     code CHAR(2)     PRIMARY KEY,
@@ -140,10 +130,6 @@ CREATE TABLE airports (
     keywords          TEXT
 );
 
--- =========================================================
--- PARTE 3: CRIAÇÃO DAS TABELAS DE FÓRMULA 1
--- =========================================================
-
 CREATE TABLE seasons (
     year INTEGER PRIMARY KEY
 );
@@ -231,21 +217,14 @@ CREATE TABLE constructor_standings (
     wins           INTEGER
 );
 
--- =========================================================
--- PARTE 4: TABELAS DE AUTENTICAÇÃO E AUDITORIA
--- =========================================================
-
--- Tabela de usuários (exigida pelo enunciado)
--- Senhas armazenadas como MD5 — nunca em texto puro
 CREATE TABLE users (
     userid      SERIAL       PRIMARY KEY,
     login       VARCHAR(150) NOT NULL UNIQUE,
-    password    VARCHAR(64)  NOT NULL,          -- hash MD5 (32 hex chars)
+    password    VARCHAR(64)  NOT NULL,
     tipo        VARCHAR(20)  NOT NULL CHECK (tipo IN ('Admin', 'Escuderia', 'Piloto')),
-    id_original INTEGER      DEFAULT NULL       -- FK para drivers.id ou constructors.id
+    id_original INTEGER      DEFAULT NULL
 );
 
--- Tabela de auditoria de acesso (exigida pelo enunciado)
 CREATE TABLE users_log (
     id         SERIAL       PRIMARY KEY,
     userid     INTEGER      NOT NULL REFERENCES users(userid),
@@ -253,24 +232,13 @@ CREATE TABLE users_log (
     data_hora  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
--- =========================================================
--- PARTE 5: TRIGGERS DE SINCRONIZAÇÃO USERS <-> DRIVERS/CONSTRUCTORS
--- =========================================================
-
--- Função auxiliar: gera hash MD5 de uma string
--- Usada para padronizar a geração de senhas
 CREATE OR REPLACE FUNCTION gerar_senha_hash(senha TEXT)
 RETURNS VARCHAR(64) AS $$
 BEGIN
-    -- CONCEITO: função armazenada para centralizar lógica de hash
-    RETURN MD5(senha);
+    RETURN crypt(senha, gen_salt('bf'));
 END;
 $$ LANGUAGE plpgsql;
 
--- -------------------------------------------------------
--- Trigger: ao inserir um piloto, cria usuário automaticamente
--- CONCEITO: trigger para manter consistência entre tabelas
--- -------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_criar_usuario_piloto()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -280,7 +248,6 @@ BEGIN
     v_login := NEW.driver_id || '_d';
     v_senha := gerar_senha_hash(NEW.driver_id);
 
-    -- Verifica se o login já existe antes de inserir
     IF EXISTS (SELECT 1 FROM users WHERE login = v_login) THEN
         RAISE EXCEPTION 'Login "%" já existe na tabela USERS. Inserção cancelada.', v_login;
     END IF;
@@ -296,7 +263,6 @@ CREATE TRIGGER trg_after_insert_driver
     AFTER INSERT ON drivers
     FOR EACH ROW EXECUTE FUNCTION trg_criar_usuario_piloto();
 
--- Trigger: ao atualizar driver_id de um piloto, atualiza o login correspondente
 CREATE OR REPLACE FUNCTION trg_atualizar_usuario_piloto()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -323,9 +289,6 @@ CREATE TRIGGER trg_after_update_driver
     AFTER UPDATE ON drivers
     FOR EACH ROW EXECUTE FUNCTION trg_atualizar_usuario_piloto();
 
--- -------------------------------------------------------
--- Trigger: ao inserir uma escuderia, cria usuário automaticamente
--- -------------------------------------------------------
 CREATE OR REPLACE FUNCTION trg_criar_usuario_escuderia()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -350,7 +313,6 @@ CREATE TRIGGER trg_after_insert_constructor
     AFTER INSERT ON constructors
     FOR EACH ROW EXECUTE FUNCTION trg_criar_usuario_escuderia();
 
--- Trigger: ao atualizar constructor_id de uma escuderia, atualiza o login
 CREATE OR REPLACE FUNCTION trg_atualizar_usuario_escuderia()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -377,49 +339,35 @@ CREATE TRIGGER trg_after_update_constructor
     AFTER UPDATE ON constructors
     FOR EACH ROW EXECUTE FUNCTION trg_atualizar_usuario_escuderia();
 
--- =========================================================
--- PARTE 6: USUÁRIO ADMIN (inserção manual, sem trigger)
--- =========================================================
 INSERT INTO users (login, password, tipo, id_original)
-VALUES ('admin', MD5('admin'), 'Admin', NULL);
+VALUES ('admin', crypt('admin', gen_salt('bf')), 'Admin', NULL);
 
--- =========================================================
--- PARTE 7: CARGA DOS DADOS
--- Caminhos ajustados para o projeto local
--- =========================================================
 SET client_encoding TO 'UTF8';
 
--- 7.1 Países
 CREATE TEMP TABLE staging_countries (
     id TEXT, code TEXT, name TEXT, continent_code TEXT, wikipedia_link TEXT, keywords TEXT
 );
-\copy staging_countries FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/countries.csv' DELIMITER ',' CSV HEADER
+\copy staging_countries FROM '../data/countries.csv' DELIMITER ',' CSV HEADER
 INSERT INTO countries (id, code, name, continent_code, wikipedia_link, keywords)
 SELECT id::BIGINT, code, name, continent_code, wikipedia_link, keywords
 FROM staging_countries;
 DROP TABLE staging_countries;
 
--- 7.2 Fusos Horários
-\copy time_zones (country_code, name, gmt_offset, dst_offset, raw_offset) FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/timeZones.tsv' DELIMITER E'\t' CSV HEADER
+\copy time_zones (country_code, name, gmt_offset, dst_offset, raw_offset) FROM '../data/timeZones.tsv' DELIMITER E'\t' CSV HEADER
 
--- 7.3 Feature Codes
 CREATE TEMP TABLE staging_fc (code VARCHAR(15), name VARCHAR(200), description TEXT);
-\copy staging_fc FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/featureCodes_en.tsv' DELIMITER E'\t' CSV
+\copy staging_fc FROM '../data/featureCodes_en.tsv' DELIMITER E'\t' CSV
 INSERT INTO feature_codes (feature_class, feature_code, name, description)
 SELECT SPLIT_PART(code, '.', 1), SPLIT_PART(code, '.', 2), name, description
 FROM staging_fc WHERE code LIKE '%.%';
 DROP TABLE staging_fc;
 
--- 7.4 Cidades
-\copy cities FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/cities.tsv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE E'\b', ENCODING 'UTF8')
+\copy cities FROM '../data/cities.tsv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE E'\b', ENCODING 'UTF8')
 
--- 7.5 Regiões
-\copy regions (id, code, local_code, name, continent_code, country_code, wikipedia_link, keywords) FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/regions.csv' DELIMITER ',' CSV HEADER
+\copy regions (id, code, local_code, name, continent_code, country_code, wikipedia_link, keywords) FROM '../data/regions.csv' DELIMITER ',' CSV HEADER
 
--- 7.6 Idiomas
-\copy iso_language_codes (iso_639_3, iso_639_2, iso_639_1, language_name) FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/iso-languagecodes.tsv' DELIMITER E'\t' CSV HEADER
+\copy iso_language_codes (iso_639_3, iso_639_2, iso_639_1, language_name) FROM '../data/iso-languagecodes.tsv' DELIMITER E'\t' CSV HEADER
 
--- 7.7 Aeroportos
 CREATE TEMP TABLE staging_ap (
     id BIGINT, ident VARCHAR(10), type VARCHAR(50), name VARCHAR(300),
     lat NUMERIC, long NUMERIC, elev INT, cont CHAR(2), country CHAR(2),
@@ -427,7 +375,7 @@ CREATE TEMP TABLE staging_ap (
     icao VARCHAR(10), iata VARCHAR(10), gps VARCHAR(10),
     local VARCHAR(10), home TEXT, wiki TEXT, keyw TEXT
 );
-\copy staging_ap FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/airports.csv' DELIMITER ',' CSV HEADER
+\copy staging_ap FROM '../data/airports.csv' DELIMITER ',' CSV HEADER
 
 INSERT INTO airport_types (type)
 SELECT DISTINCT type FROM staging_ap ON CONFLICT DO NOTHING;
@@ -435,7 +383,7 @@ SELECT DISTINCT type FROM staging_ap ON CONFLICT DO NOTHING;
 INSERT INTO airports (
     id, ident, airport_type_id, name, latitude_deg, longitude_deg,
     elevation_ft, continent_code, country_code, iso_region,
-    municipality, scheduled_service, icao_code, iata_code,
+    municipality, scheduled_service, iacao_code, iata_code,
     gps_code, local_code, home_link, wikipedia_link, keywords
 )
 SELECT s.id, s.ident, at.id, s.name, s.lat, s.long, s.elev,
@@ -444,37 +392,32 @@ SELECT s.id, s.ident, at.id, s.name, s.lat, s.long, s.elev,
 FROM staging_ap s JOIN airport_types at ON at.type = s.type;
 DROP TABLE staging_ap;
 
--- 7.8 Circuitos e Construtores
--- ATENÇÃO: os triggers de insert em constructors criam os usuários automaticamente!
-\copy circuits (circuit_id, name, lat, long, locality, country, wikipedia_url) FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/circuits.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
+\copy circuits (circuit_id, name, lat, long, locality, country, wikipedia_url) FROM '../data/circuits.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
 
-\copy constructors (constructor_id, name, nationality, wikipedia_url) FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
+\copy constructors (constructor_id, name, nationality, wikipedia_url) FROM '../data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
 
--- 7.9 Pilotos (os triggers criam os usuários automaticamente)
 CREATE TEMP TABLE staging_drivers (
     driver_ref VARCHAR(100), given_name VARCHAR(100), family_name VARCHAR(100),
     nationality VARCHAR(100), dob DATE
 );
-\copy staging_drivers FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/drivers.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
+\copy staging_drivers FROM '../data/drivers.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
 INSERT INTO drivers (driver_id, driver_ref, given_name, family_name, nationality, dob)
 SELECT driver_ref, driver_ref, given_name, family_name, nationality, dob
 FROM staging_drivers;
 DROP TABLE staging_drivers;
 
--- 7.10 Corridas e Temporadas
 CREATE TEMP TABLE staging_races (rid VARCHAR(20), sea INTEGER, rou INTEGER, rna VARCHAR(200), rda DATE, rti TIME, cid VARCHAR(100));
-\copy staging_races FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/races.csv' DELIMITER ',' CSV HEADER
+\copy staging_races FROM '../data/races.csv' DELIMITER ',' CSV HEADER
 INSERT INTO seasons (year) SELECT DISTINCT sea FROM staging_races ON CONFLICT (year) DO NOTHING;
 INSERT INTO races (race_id, season, round, race_name, race_date, race_time, circuit_id)
 SELECT rid, sea, rou, rna, rda, rti, cid FROM staging_races;
 DROP TABLE staging_races;
 
--- 7.11 Qualifying
 CREATE TEMP TABLE staging_qualy (
     race_id VARCHAR(20), driver_id VARCHAR(100), constructor_id VARCHAR(100),
     position_text TEXT, q1 VARCHAR(20), q2 VARCHAR(20), q3 VARCHAR(20)
 );
-\copy staging_qualy FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/qualifying.csv' DELIMITER ',' CSV HEADER
+\copy staging_qualy FROM '../data/qualifying.csv' DELIMITER ',' CSV HEADER
 INSERT INTO qualifying (race_id, driver_id, constructor_id, position, q1, q2, q3)
 SELECT race_id, driver_id, constructor_id,
     CASE WHEN position_text ~ '^[0-9]+$' THEN position_text::INTEGER ELSE NULL END,
@@ -482,13 +425,12 @@ SELECT race_id, driver_id, constructor_id,
 FROM staging_qualy;
 DROP TABLE staging_qualy;
 
--- 7.12 Resultados
 CREATE TEMP TABLE staging_results (
     race_id VARCHAR(20), driver_id VARCHAR(100), constructor_id VARCHAR(100),
     grid_text TEXT, pos_text TEXT, position_order_text TEXT,
     points_text TEXT, laps_text TEXT, status VARCHAR(100)
 );
-\copy staging_results FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/results.csv' DELIMITER ',' CSV HEADER
+\copy staging_results FROM '../data/results.csv' DELIMITER ',' CSV HEADER
 INSERT INTO results (race_id, driver_id, constructor_id, grid, position, position_order, points, laps, status)
 SELECT race_id, driver_id, constructor_id,
     NULLIF(TRIM(grid_text), '')::INTEGER,
@@ -500,12 +442,11 @@ SELECT race_id, driver_id, constructor_id,
 FROM staging_results;
 DROP TABLE staging_results;
 
--- 7.13 Driver Standings
 CREATE TEMP TABLE staging_ds (
     season_text TEXT, round_text TEXT, driver_id VARCHAR(100),
     pos_text TEXT, points_text TEXT, wins_text TEXT
 );
-\copy staging_ds FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/driver_standings.csv' DELIMITER ',' CSV HEADER
+\copy staging_ds FROM '../data/driver_standings.csv' DELIMITER ',' CSV HEADER
 INSERT INTO driver_standings (season, round, driver_id, position, points, wins)
 SELECT
     NULLIF(TRIM(season_text), '')::INTEGER,
@@ -517,12 +458,11 @@ SELECT
 FROM staging_ds;
 DROP TABLE staging_ds;
 
--- 7.14 Constructor Standings
 CREATE TEMP TABLE staging_cs (
     season_text TEXT, round_text TEXT, constructor_id VARCHAR(100),
     pos_text TEXT, points_text TEXT, wins_text TEXT
 );
-\copy staging_cs FROM 'C:/Users/nbook/OneDrive/Documentos/GitHub/projeto-lab-bd/data/constructor_standings.csv' DELIMITER ',' CSV HEADER
+\copy staging_cs FROM '../data/constructor_standings.csv' DELIMITER ',' CSV HEADER
 INSERT INTO constructor_standings (season, round, constructor_id, position, points, wins)
 SELECT
     NULLIF(TRIM(season_text), '')::INTEGER,
@@ -534,10 +474,6 @@ SELECT
 FROM staging_cs;
 DROP TABLE staging_cs;
 
--- =========================================================
--- PARTE 8: ÍNDICES
--- =========================================================
-
 CREATE INDEX IF NOT EXISTS idx_users_login        ON users (login);
 CREATE INDEX IF NOT EXISTS idx_users_log_userid   ON users_log (userid);
 CREATE INDEX IF NOT EXISTS idx_results_driver     ON results (driver_id);
@@ -546,9 +482,6 @@ CREATE INDEX IF NOT EXISTS idx_results_race       ON results (race_id);
 CREATE INDEX IF NOT EXISTS idx_airports_country   ON airports (country_code);
 CREATE INDEX IF NOT EXISTS idx_airports_type      ON airports (airport_type_id);
 
--- =========================================================
--- PARTE 9: CONFERÊNCIA DE CARGA
--- =========================================================
 SELECT tabela, registros FROM (
     SELECT 'continents'   AS tabela, COUNT(*) AS registros FROM continents   UNION ALL
     SELECT 'countries',              COUNT(*) FROM countries                  UNION ALL

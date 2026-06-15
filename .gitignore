@@ -6,7 +6,6 @@ venv/
 .venv/
 env/
 .env
-data/
 
 postgres_data/
 

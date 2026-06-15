@@ -1,5 +1,4 @@
 import os
-import hashlib
 import jwt
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Header
@@ -17,9 +16,6 @@ ALGORITHM = "HS256"
 class LoginRequest(BaseModel):
     login: str
     senha: str
-
-def hash_senha(senha: str) -> str:
-    return hashlib.md5(senha.encode()).hexdigest()
 
 def criar_token(dados: dict):
     to_encode = dados.copy()
@@ -46,8 +42,8 @@ def login(req: LoginRequest):
     try:
         with conn.cursor(cursor_factory=__import__('psycopg2').extras.RealDictCursor) as cur:
             cur.execute(
-                "SELECT * FROM users WHERE login = %s AND password = %s",
-                (req.login, hash_senha(req.senha))
+                "SELECT * FROM users WHERE login = %s AND password = crypt(%s, password)",
+                (req.login, req.senha)
             )
             usuario = cur.fetchone()
             
@@ -94,9 +90,6 @@ def logout(usuario: dict = Depends(obter_usuario_atual)):
         conn.close()
 
 def requer_permissao(tipos_permitidos: list[str]):
-    """
-    Verifica se o usuário logado possui um dos tipos permitidos.
-    """
     def verificador(usuario: dict = Depends(obter_usuario_atual)):
         if usuario.get("tipo", "").lower() not in tipos_permitidos:
             raise HTTPException(
