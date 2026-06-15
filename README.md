@@ -25,13 +25,3 @@ VITE_API_URL=[http://127.0.0.1:8000](http://127.0.0.1:8000)
    ```
 4. API: `http://localhost:8000`
 5. Frontend: `http://localhost:5173`
-
-## Reinicializando o Banco de Dados (Carga de Dados)
-Para reiniciar o banco de dados e executar o script de inicialização (`init.sql`) que popula as tabelas a partir dos arquivos `.csv`, utilize o terminal do seu computador. 
-
-**Atenção:** Você deve executar o comando **estando dentro da pasta `sql`**, pois o script utiliza caminhos relativos (`../data/`) para localizar os arquivos.
-
-```bash
-cd sql
-psql -h pgdb.icmc.usp.br -p 5432 -U scc541_g10 -d scc541_g10_db -f init.sql
-```
