@@ -1,9 +1,4 @@
-# SCC-541 Laboratório de Bases de Dados - Projeto Final (Fórmula 1)
-
-*Nota: Um repositório de projeto temporário foi utilizado porque o código do projeto próprio ainda não estava pronto.*
-
-## Pré-requisitos
-- Docker e Docker Compose instalados na máquina.
+# SCC-541 Laboratório de Bases de Dados - Projeto Final
 
 ## Configuração do Ambiente
 O projeto exige as seguintes variáveis de ambiente no arquivo `.env` localizado na raiz do projeto:
