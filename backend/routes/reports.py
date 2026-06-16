@@ -59,6 +59,7 @@ def relatorio2(cidade: str, usuario: dict = Depends(obter_usuario_atual)):
 
 
 # ── Relatório 3 — Admin ────────────────────────────────────
+# ── Relatório 3 — Admin ────────────────────────────────────
 @router.get("/3")
 def relatorio3(usuario: dict = Depends(obter_usuario_atual)):
     _exige_admin(usuario)
@@ -67,10 +68,20 @@ def relatorio3(usuario: dict = Depends(obter_usuario_atual)):
         with _cur(conn) as cur:
             cur.execute("SELECT * FROM fn_relatorio3_nivel1()")
             nivel1 = dict(cur.fetchone())
+
+            cur.execute("SELECT * FROM fn_relatorio3_escuderias()")
+            escuderias = [dict(r) for r in cur.fetchall()]
+
             cur.execute("SELECT * FROM fn_relatorio3_nivel2()")
             nivel2 = [dict(r) for r in cur.fetchall()]
-            return {"relatorio": 3, "titulo": "Hierarquia de Corridas",
-                    "nivel1": nivel1, "nivel2": nivel2}
+
+            return {
+                "relatorio": 3,
+                "titulo": "Hierarquia de Corridas",
+                "nivel1": nivel1,
+                "escuderias": escuderias,
+                "nivel2": nivel2
+            }
     finally:
         conn.close()
 

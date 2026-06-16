@@ -129,6 +129,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION fn_relatorio3_escuderias()
+RETURNS TABLE (
+    escuderia TEXT,
+    total_pilotos BIGINT
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.name::TEXT AS escuderia,
+        COUNT(DISTINCT r.driver_id) AS total_pilotos
+    FROM constructors c
+    LEFT JOIN results r ON r.constructor_id = c.constructor_id
+    GROUP BY c.name
+    ORDER BY c.name;
+END;
+$$ LANGUAGE plpgsql;
+
 -- =========================================================
 -- RELATÓRIO 4 — Escuderia: pilotos com vitórias
 -- =========================================================
@@ -138,12 +155,11 @@ BEGIN
     RETURN QUERY
     SELECT
         v.piloto_completo,
-        COUNT(*) FILTER (WHERE v.position = 1)
+        COUNT(*) FILTER (WHERE v.position = 1) AS total_vitorias
     FROM vw_resultados_completos v
     WHERE v.constructor_id = p_constructor_id
     GROUP BY v.piloto_completo
-    HAVING COUNT(*) FILTER (WHERE v.position = 1) > 0
-    ORDER BY total_vitorias DESC;
+    ORDER BY total_vitorias DESC, piloto;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -164,13 +180,36 @@ $$ LANGUAGE plpgsql;
 -- RELATÓRIO 6 — Piloto: pontos por ano e corrida
 -- =========================================================
 CREATE OR REPLACE FUNCTION fn_relatorio6(p_driver_id VARCHAR)
-RETURNS TABLE (ano INTEGER, corrida VARCHAR, circuito VARCHAR, pontos NUMERIC, posicao INTEGER) AS $$
+RETURNS TABLE (
+    ano INTEGER,
+    total_pontos_ano NUMERIC,
+    corrida VARCHAR,
+    circuito VARCHAR,
+    pontos NUMERIC,
+    posicao INTEGER
+) AS $$
 BEGIN
     RETURN QUERY
-    SELECT v.season, v.race_name, v.circuito_nome, v.points, v.position
-    FROM vw_resultados_completos v
-    WHERE v.driver_id = p_driver_id AND v.points > 0
-    ORDER BY v.season, v.race_date;
+    WITH corridas_pontuadas AS (
+        SELECT
+            v.season AS ano,
+            v.race_name AS corrida,
+            v.circuito_nome AS circuito,
+            v.points AS pontos,
+            v.position AS posicao
+        FROM vw_resultados_completos v
+        WHERE v.driver_id = p_driver_id
+          AND v.points > 0
+    )
+    SELECT
+        c.ano,
+        SUM(c.pontos) OVER (PARTITION BY c.ano) AS total_pontos_ano,
+        c.corrida,
+        c.circuito,
+        c.pontos,
+        c.posicao
+    FROM corridas_pontuadas c
+    ORDER BY c.ano, c.corrida;
 END;
 $$ LANGUAGE plpgsql;
 

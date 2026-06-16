@@ -6,14 +6,15 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 export default function Relatorios({ token, usuario }) {
   const tipo = (usuario.tipo || '').toLowerCase()
   const [aberto, setAberto] = useState(null)   // número do relatório aberto
-  const [dados, setDados]   = useState(null)
+  const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [erro, setErro]     = useState('')
+  const [erro, setErro] = useState('')
 
   // Input para relatório 2 (cidade) e 3 (circuito drill-down)
-  const [cidade, setCidade]     = useState('')
+  const [cidade, setCidade] = useState('')
   const [circuito, setCircuito] = useState(null)
-  const [nivel3, setNivel3]     = useState(null)
+  const [nivel3, setNivel3] = useState(null)
+
   // Input para busca de piloto por sobrenome (escuderia)
   const [sobrenome, setSobrenome] = useState('')
 
@@ -22,12 +23,19 @@ export default function Relatorios({ token, usuario }) {
     setErro('')
     setDados(null)
     setNivel3(null)
+
     try {
       const res = await fetch(`${API}/relatorios/${endpoint}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
+
       const json = await res.json()
-      if (!res.ok) { setErro(json.detail || 'Erro ao buscar relatório.'); return }
+
+      if (!res.ok) {
+        setErro(json.detail || 'Erro ao buscar relatório.')
+        return
+      }
+
       setDados(json)
     } catch {
       setErro('Erro de conexão.')
@@ -37,19 +45,26 @@ export default function Relatorios({ token, usuario }) {
   }
 
   async function buscarNivel3(circ) {
-  setNivel3(null)      
-  setCircuito(circ)
-  try {
-    const res = await fetch(
-      `${API}/relatorios/3/circuito/${encodeURIComponent(circ)}`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    )
-    const json = await res.json()
-    if (!res.ok) { setErro(json.detail || 'Erro ao buscar detalhes do circuito.'); return }
-    setNivel3(json.dados ?? [])
-  } catch {
-    setErro('Erro de conexão ao buscar detalhes do circuito.')
-  }
+    setNivel3(null)
+    setCircuito(circ)
+
+    try {
+      const res = await fetch(
+        `${API}/relatorios/3/circuito/${encodeURIComponent(circ)}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      const json = await res.json()
+
+      if (!res.ok) {
+        setErro(json.detail || 'Erro ao buscar detalhes do circuito.')
+        return
+      }
+
+      setNivel3(json.dados ?? [])
+    } catch {
+      setErro('Erro de conexão ao buscar detalhes do circuito.')
+    }
   }
 
   function abrirRelatorio(num) {
@@ -59,14 +74,19 @@ export default function Relatorios({ token, usuario }) {
     setNivel3(null)
     setCidade('')
     setSobrenome('')
+
     // Relatórios sem input: busca imediato
     if ([1, 3, 4, 5, 6, 7].includes(num)) buscar(String(num))
   }
 
-  function fechar() { setAberto(null); setDados(null); setErro('') }
+  function fechar() {
+    setAberto(null)
+    setDados(null)
+    setErro('')
+  }
 
   const relatoriosPorTipo = {
-    admin:    [
+    admin: [
       { num: 1, nome: 'Resultados por status' },
       { num: 2, nome: 'Aeroportos próximos a uma cidade' },
       { num: 3, nome: 'Hierarquia de corridas' },
@@ -76,7 +96,7 @@ export default function Relatorios({ token, usuario }) {
       { num: 5, nome: 'Resultados por status da escuderia' },
       { num: 'busca', nome: 'Buscar piloto por sobrenome' },
     ],
-    piloto:   [
+    piloto: [
       { num: 6, nome: 'Pontos por ano e corrida' },
       { num: 7, nome: 'Resultados por status' },
     ],
@@ -92,7 +112,9 @@ export default function Relatorios({ token, usuario }) {
       {!aberto && (
         <div className="relatorios-lista">
           {lista.map(r => (
-            <div key={r.num} className="relatorio-card"
+            <div
+              key={r.num}
+              className="relatorio-card"
               onClick={() => abrirRelatorio(r.num)}
               style={{ cursor: 'pointer' }}
             >
@@ -107,8 +129,11 @@ export default function Relatorios({ token, usuario }) {
       {/* Relatório aberto */}
       {aberto && (
         <div>
-          <button className="btn-secondary" onClick={fechar}
-            style={{ marginBottom: '1.5rem' }}>
+          <button
+            className="btn-secondary"
+            onClick={fechar}
+            style={{ marginBottom: '1.5rem' }}
+          >
             ← Voltar aos relatórios
           </button>
 
@@ -120,9 +145,15 @@ export default function Relatorios({ token, usuario }) {
                 placeholder="Nome da cidade brasileira..."
                 value={cidade}
                 onChange={e => setCidade(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && cidade && buscar(`2/${encodeURIComponent(cidade)}`)}
+                onKeyDown={e =>
+                  e.key === 'Enter' &&
+                  cidade &&
+                  buscar(`2/${encodeURIComponent(cidade)}`)
+                }
               />
-              <button className="btn-primary"
+
+              <button
+                className="btn-primary"
                 onClick={() => cidade && buscar(`2/${encodeURIComponent(cidade)}`)}
                 disabled={!cidade || loading}
               >
@@ -139,10 +170,19 @@ export default function Relatorios({ token, usuario }) {
                 placeholder="Sobrenome do piloto..."
                 value={sobrenome}
                 onChange={e => setSobrenome(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sobrenome && buscar(`busca-piloto/${encodeURIComponent(sobrenome)}`)}
+                onKeyDown={e =>
+                  e.key === 'Enter' &&
+                  sobrenome &&
+                  buscar(`busca-piloto/${encodeURIComponent(sobrenome)}`)
+                }
               />
-              <button className="btn-primary"
-                onClick={() => sobrenome && buscar(`busca-piloto/${encodeURIComponent(sobrenome)}`)}
+
+              <button
+                className="btn-primary"
+                onClick={() =>
+                  sobrenome &&
+                  buscar(`busca-piloto/${encodeURIComponent(sobrenome)}`)
+                }
                 disabled={!sobrenome || loading}
               >
                 Buscar
@@ -151,7 +191,12 @@ export default function Relatorios({ token, usuario }) {
           )}
 
           {loading && <p className="estado-vazio carregando">Carregando...</p>}
-          {erro    && <p className="estado-vazio" style={{ color: '#ff6b6b' }}>{erro}</p>}
+
+          {erro && (
+            <p className="estado-vazio" style={{ color: '#ff6b6b' }}>
+              {erro}
+            </p>
+          )}
 
           {/* Resultados */}
           {dados && !loading && (
@@ -160,7 +205,7 @@ export default function Relatorios({ token, usuario }) {
                 {dados.titulo || `Relatório ${aberto}`}
               </h3>
 
-              {/* R1, R4, R5, R6, R7 e busca: tabela simples */}
+              {/* R1, R4, R5, R6, R7: tabela simples */}
               {[1, 4, 5, 6, 7].includes(aberto) && (
                 <TabelaRelatorio dados={dados.dados} />
               )}
@@ -168,15 +213,25 @@ export default function Relatorios({ token, usuario }) {
               {/* Busca por sobrenome */}
               {aberto === 'busca' && (
                 dados.encontrados === 0
-                  ? <p className="estado-vazio">Nenhum piloto encontrado com esse sobrenome nesta escuderia.</p>
-                  : <TabelaRelatorio dados={dados.dados} />
+                  ? (
+                    <p className="estado-vazio">
+                      Nenhum piloto encontrado com esse sobrenome nesta escuderia.
+                    </p>
+                  )
+                  : (
+                    <TabelaRelatorio dados={dados.dados} />
+                  )
               )}
 
               {/* R2: tabela com distância */}
               {aberto === 2 && (
                 dados.dados?.length === 0
-                  ? <p className="estado-vazio">{dados.mensagem}</p>
-                  : <TabelaRelatorio dados={dados.dados} />
+                  ? (
+                    <p className="estado-vazio">{dados.mensagem}</p>
+                  )
+                  : (
+                    <TabelaRelatorio dados={dados.dados} />
+                  )
               )}
 
               {/* R3: hierarquia com drill-down */}
@@ -184,16 +239,41 @@ export default function Relatorios({ token, usuario }) {
                 <div>
                   <div className="cards-grid" style={{ marginBottom: '1.5rem' }}>
                     <div className="card">
-                      <span className="card-valor">{dados.nivel1?.total_corridas}</span>
+                      <span className="card-valor">
+                        {dados.nivel1?.total_corridas}
+                      </span>
                       <span className="card-label">Total de Corridas</span>
                     </div>
+
                     <div className="card">
-                      <span className="card-valor">{dados.nivel1?.total_escuderias}</span>
+                      <span className="card-valor">
+                        {dados.nivel1?.total_escuderias}
+                      </span>
                       <span className="card-label">Total de Escuderias</span>
                     </div>
                   </div>
 
-                  <p style={{ color: 'var(--muted)', fontSize: '.82rem', marginBottom: '.75rem' }}>
+                  {/* Lista de escuderias com quantidade de pilotos */}
+                  <h4 className="secao-titulo" style={{ marginBottom: '.75rem' }}>
+                    Escuderias cadastradas
+                  </h4>
+
+                  <TabelaRelatorio dados={dados.escuderias} />
+
+                  <h4
+                    className="secao-titulo"
+                    style={{ marginTop: '1.5rem', marginBottom: '.75rem' }}
+                  >
+                    Corridas por circuito
+                  </h4>
+
+                  <p
+                    style={{
+                      color: 'var(--muted)',
+                      fontSize: '.82rem',
+                      marginBottom: '.75rem'
+                    }}
+                  >
                     Clique em um circuito para ver o detalhamento das corridas.
                   </p>
 
@@ -208,9 +288,12 @@ export default function Relatorios({ token, usuario }) {
                           <th>Máx. Voltas</th>
                         </tr>
                       </thead>
+
                       <tbody>
                         {(dados.nivel2 || []).map((r, i) => (
-                          <tr key={i} style={{ cursor: 'pointer' }}
+                          <tr
+                            key={i}
+                            style={{ cursor: 'pointer' }}
                             onClick={() => buscarNivel3(r.circuito)}
                           >
                             <td style={{ color: 'var(--red)' }}>{r.circuito}</td>
@@ -224,14 +307,17 @@ export default function Relatorios({ token, usuario }) {
                     </table>
                   </div>
 
-                {/* Drill-down nível 3 — Modal */}
-                {circuito && nivel3 !== null && (
-                <Modal
-                    titulo={circuito}
-                    dados={nivel3}
-                    onFechar={() => { setCircuito(null); setNivel3(null) }}
-                />
-                )}
+                  {/* Drill-down nível 3 — Modal */}
+                  {circuito && nivel3 !== null && (
+                    <Modal
+                      titulo={circuito}
+                      dados={nivel3}
+                      onFechar={() => {
+                        setCircuito(null)
+                        setNivel3(null)
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -244,26 +330,49 @@ export default function Relatorios({ token, usuario }) {
 
 // ── Tabela genérica ────────────────────────────────────────
 function TabelaRelatorio({ dados }) {
-  if (!dados || dados.length === 0)
+  if (!dados || dados.length === 0) {
     return <p className="estado-vazio">Nenhum resultado encontrado.</p>
+  }
 
   const colunas = Object.keys(dados[0])
+
   const label = {
-    status: 'Status', quantidade: 'Quantidade', piloto: 'Piloto',
-    total_vitorias: 'Vitórias', ano: 'Ano', corrida: 'Corrida',
-    circuito: 'Circuito', pontos: 'Pontos', posicao: 'Posição',
-    cidade_pesquisada: 'Cidade', iata_code: 'IATA', aeroporto_nome: 'Aeroporto',
-    municipio: 'Município', distancia_km: 'Distância (km)', tipo: 'Tipo',
-    nome_completo: 'Nome', data_nascimento: 'Nascimento', nacionalidade: 'Nacionalidade',
-    temporada: 'Temporada', voltas: 'Voltas', total_pilotos: 'Pilotos',
+    status: 'Status',
+    quantidade: 'Quantidade',
+    piloto: 'Piloto',
+    total_vitorias: 'Vitórias',
+    ano: 'Ano',
+    total_pontos_ano: 'Total no Ano',
+    corrida: 'Corrida',
+    circuito: 'Circuito',
+    pontos: 'Pontos',
+    posicao: 'Posição',
+    cidade_pesquisada: 'Cidade',
+    iata_code: 'IATA',
+    aeroporto_nome: 'Aeroporto',
+    municipio: 'Município',
+    distancia_km: 'Distância (km)',
+    tipo: 'Tipo',
+    nome_completo: 'Nome',
+    data_nascimento: 'Nascimento',
+    nacionalidade: 'Nacionalidade',
+    temporada: 'Temporada',
+    voltas: 'Voltas',
+    total_pilotos: 'Pilotos',
+    escuderia: 'Escuderia',
   }
 
   return (
     <div className="tabela-wrapper">
       <table className="tabela">
         <thead>
-          <tr>{colunas.map(c => <th key={c}>{label[c] || c}</th>)}</tr>
+          <tr>
+            {colunas.map(c => (
+              <th key={c}>{label[c] || c}</th>
+            ))}
+          </tr>
         </thead>
+
         <tbody>
           {dados.map((row, i) => (
             <tr key={i}>
@@ -286,9 +395,13 @@ function Modal({ titulo, dados, onFechar }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
         background: 'rgba(0,0,0,0.75)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '1rem'
       }}
       onClick={onFechar}
@@ -298,16 +411,31 @@ function Modal({ titulo, dados, onFechar }) {
           background: 'var(--surface, #1a1a1a)',
           border: '1px solid var(--border, #333)',
           borderRadius: '8px',
-          width: '100%', maxWidth: '800px',
-          maxHeight: '80vh', overflow: 'auto',
+          width: '100%',
+          maxWidth: '800px',
+          maxHeight: '80vh',
+          overflow: 'auto',
           padding: '1.5rem'
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h4 className="secao-titulo" style={{ margin: 0 }}>{titulo} — Corridas</h4>
-          <button className="btn-secondary" onClick={onFechar}>✕ Fechar</button>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '1rem'
+          }}
+        >
+          <h4 className="secao-titulo" style={{ margin: 0 }}>
+            {titulo} — Corridas
+          </h4>
+
+          <button className="btn-secondary" onClick={onFechar}>
+            ✕ Fechar
+          </button>
         </div>
+
         <TabelaRelatorio dados={dados} />
       </div>
     </div>

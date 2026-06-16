@@ -383,7 +383,7 @@ SELECT DISTINCT type FROM staging_ap ON CONFLICT DO NOTHING;
 INSERT INTO airports (
     id, ident, airport_type_id, name, latitude_deg, longitude_deg,
     elevation_ft, continent_code, country_code, iso_region,
-    municipality, scheduled_service, iacao_code, iata_code,
+    municipality, scheduled_service, icao_code, iata_code,
     gps_code, local_code, home_link, wikipedia_link, keywords
 )
 SELECT s.id, s.ident, at.id, s.name, s.lat, s.long, s.elev,
