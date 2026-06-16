@@ -69,7 +69,7 @@ function Navbar({ usuario, tela, setTela, onLogout }) {
     <nav className="navbar">
       <div className="navbar-brand">
         <span className="f1-logo">F1</span>
-        <span className="navbar-title">Pit Lane</span>
+        <span className="navbar-title">Ciber Track</span>
       </div>
       <div className="navbar-tabs">
         <button
@@ -128,8 +128,8 @@ function TelaLogin({ onLogin }) {
       <div className="login-card">
         <div className="login-header">
           <span className="f1-logo f1-logo--lg">F1</span>
-          <h1 className="login-title">Pit Lane</h1>
-          <p className="login-sub">Sistema de Gestão — Fórmula 1 FIA</p>
+          <h1 className="login-title">Ciber Track</h1>
+          <p className="login-sub">Sistema de Gestão da Fórmula 1</p>
         </div>
         <form className="login-form" onSubmit={handleSubmit}>
           <label>
@@ -138,7 +138,7 @@ function TelaLogin({ onLogin }) {
               type="text"
               value={login}
               onChange={e => setLogin(e.target.value)}
-              placeholder="admin · hamilton_d · ferrari_c"
+              placeholder="Ex.: admin · hamilton_d · ferrari_c"
               required
               disabled={loading}
             />
@@ -302,6 +302,15 @@ function AcoesAdmin({ token }) {
     <div className="acoes-grid">
       <FormCadastrarEscuderia token={token} />
       <FormCadastrarPiloto    token={token} />
+    </div>
+  )
+}
+
+function AcoesEscuderia({ token }) {
+  return (
+    <div className="acoes-grid">
+      <FormBuscarPiloto token={token} />
+      <FormUploadPilotos token={token} />
     </div>
   )
 }

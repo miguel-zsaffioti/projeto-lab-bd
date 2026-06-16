@@ -352,7 +352,8 @@ CREATE TEMP TABLE staging_countries (
 \copy staging_countries FROM '../data/countries.csv' DELIMITER ',' CSV HEADER
 INSERT INTO countries (id, code, name, continent_code, wikipedia_link, keywords)
 SELECT id::BIGINT, code, name, continent_code, wikipedia_link, keywords
-FROM staging_countries;
+FROM staging_countries
+ON CONFLICT (id) DO NOTHING;
 DROP TABLE staging_countries;
 
 \copy time_zones (country_code, name, gmt_offset, dst_offset, raw_offset) FROM '../data/timeZones.tsv' DELIMITER E'\t' CSV HEADER
@@ -399,12 +400,25 @@ DROP TABLE staging_ap;
 \copy constructors (constructor_id, name, nationality, wikipedia_url) FROM '../data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
 
 CREATE TEMP TABLE staging_drivers (
-    driver_ref VARCHAR(100), given_name VARCHAR(100), family_name VARCHAR(100),
-    nationality VARCHAR(100), dob DATE
+    driver_ref VARCHAR(100),
+    given_name VARCHAR(100),
+    family_name VARCHAR(100),
+    nationality VARCHAR(100),
+    dob DATE
 );
+
 \copy staging_drivers FROM '../data/drivers.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
-SELECT driver_ref, driver_ref, given_name, family_name, nationality, dob
+
+INSERT INTO drivers (driver_id, driver_ref, given_name, family_name, nationality, dob)
+SELECT
+    driver_ref,
+    driver_ref,
+    given_name,
+    family_name,
+    nationality,
+    dob
 FROM staging_drivers;
+
 DROP TABLE staging_drivers;
 
 CREATE TEMP TABLE staging_races (rid VARCHAR(20), sea INTEGER, rou INTEGER, rna VARCHAR(200), rda DATE, rti TIME, cid VARCHAR(100));

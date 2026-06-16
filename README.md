@@ -12,7 +12,7 @@ DB_PASSWORD=<SUA_SENHA_AQUI>
 
 JWT_SECRET_KEY=grupo10
 
-VITE_API_URL=http://127.0.0.1:800
+VITE_API_URL=http://127.0.0.1:8000
 ```
 
 ## Instruções de Execução

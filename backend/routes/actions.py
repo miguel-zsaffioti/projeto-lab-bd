@@ -79,6 +79,13 @@ def cadastrar_escuderia(
 
     except psycopg2.Error as e:
         conn.rollback()
+
+        if e.pgcode == "23505":
+            raise HTTPException(
+                status_code=400,
+                detail=f"A escuderia '{constructor_ref}' já existe na base."
+            )
+
         mensagem_erro = (
             e.diag.message_primary
             if e.diag and e.diag.message_primary
@@ -139,6 +146,13 @@ def cadastrar_piloto(
 
     except psycopg2.Error as e:
         conn.rollback()
+
+        if e.pgcode == "23505":
+            raise HTTPException(
+                status_code=400,
+                detail=f"O piloto '{dados.driver_ref}' já existe na base."
+            )
+
         mensagem_erro = (
             e.diag.message_primary
             if e.diag and e.diag.message_primary
