@@ -34,7 +34,9 @@ export default function App() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
-    } catch {}
+    } catch (e) {
+  console.warn('Falha ao registrar logout no servidor.', e)
+    }
     localStorage.removeItem('token')
     setToken(null)
     setUsuario(null)
@@ -306,10 +308,16 @@ function AcoesAdmin({ token }) {
 
 // ─── Formulário: Cadastrar Escuderia (Admin) ───────────────
 function FormCadastrarEscuderia({ token }) {
-  const inicial = { constructor_id: '', name: '', nationality: '', wikipedia_url: '' }
-  const [form, setForm]       = useState(inicial)
+  const inicial = {
+    constructor_ref: '',
+    name: '',
+    country_id: '',
+    wikipedia_url: ''
+  }
+
+  const [form, setForm] = useState(inicial)
   const [loading, setLoading] = useState(false)
-  const [feedback, setFeedback] = useState(null) // { ok: bool, msg: string }
+  const [feedback, setFeedback] = useState(null)
 
   function handleChange(e) {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -319,16 +327,24 @@ function FormCadastrarEscuderia({ token }) {
     e.preventDefault()
     setFeedback(null)
     setLoading(true)
+
     try {
+      const payload = {
+        ...form,
+        country_id: Number(form.country_id)
+      }
+
       const res = await fetch(`${API}/acoes/admin/escuderias`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
+
       const data = await res.json()
+
       if (res.ok) {
         setFeedback({ ok: true, msg: data.mensagem || 'Escuderia cadastrada com sucesso!' })
         setForm(inicial)
@@ -354,17 +370,18 @@ function FormCadastrarEscuderia({ token }) {
 
       <form className="acao-form" onSubmit={handleSubmit}>
         <div className="form-campo">
-          <label htmlFor="esc-constructor_id">Constructor ID</label>
+          <label htmlFor="esc-constructor_ref">Constructor Ref</label>
           <input
-            id="esc-constructor_id"
-            name="constructor_id"
-            value={form.constructor_id}
+            id="esc-constructor_ref"
+            name="constructor_ref"
+            value={form.constructor_ref}
             onChange={handleChange}
             placeholder="ex: mclaren"
             required
             disabled={loading}
           />
         </div>
+
         <div className="form-campo">
           <label htmlFor="esc-name">Nome</label>
           <input
@@ -377,20 +394,25 @@ function FormCadastrarEscuderia({ token }) {
             disabled={loading}
           />
         </div>
+
         <div className="form-campo">
-          <label htmlFor="esc-nationality">Nacionalidade</label>
+          <label htmlFor="esc-country_id">Country ID</label>
           <input
-            id="esc-nationality"
-            name="nationality"
-            value={form.nationality}
+            id="esc-country_id"
+            name="country_id"
+            type="number"
+            value={form.country_id}
             onChange={handleChange}
-            placeholder="ex: British"
+            placeholder="ex: 76"
             required
             disabled={loading}
           />
         </div>
+
         <div className="form-campo">
-          <label htmlFor="esc-wikipedia_url">URL Wikipedia <span className="opcional">(opcional)</span></label>
+          <label htmlFor="esc-wikipedia_url">
+            URL Wikipedia <span className="opcional">(opcional)</span>
+          </label>
           <input
             id="esc-wikipedia_url"
             name="wikipedia_url"
@@ -410,7 +432,7 @@ function FormCadastrarEscuderia({ token }) {
         <button
           type="submit"
           className="btn-primary"
-          disabled={loading || !form.constructor_id || !form.name || !form.nationality}
+          disabled={loading || !form.constructor_ref || !form.name || !form.country_id}
         >
           {loading ? 'Cadastrando…' : 'Cadastrar Escuderia'}
         </button>
@@ -421,9 +443,16 @@ function FormCadastrarEscuderia({ token }) {
 
 // ─── Formulário: Cadastrar Piloto (Admin) ──────────────────
 function FormCadastrarPiloto({ token }) {
-  const inicial = { driver_ref: '', given_name: '', family_name: '', dob: '', nationality: '' }
-  const [form, setForm]         = useState(inicial)
-  const [loading, setLoading]   = useState(false)
+  const inicial = {
+    driver_ref: '',
+    given_name: '',
+    family_name: '',
+    date_of_birth: '',
+    country_id: ''
+  }
+
+  const [form, setForm] = useState(inicial)
+  const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
 
   function handleChange(e) {
@@ -434,9 +463,13 @@ function FormCadastrarPiloto({ token }) {
     e.preventDefault()
     setFeedback(null)
     setLoading(true)
+
     try {
-      // driver_id e driver_ref são o mesmo valor no schema atual
-      const payload = { ...form, driver_id: form.driver_ref }
+      const payload = {
+        ...form,
+        country_id: Number(form.country_id)
+      }
+
       const res = await fetch(`${API}/acoes/admin/pilotos`, {
         method: 'POST',
         headers: {
@@ -445,7 +478,9 @@ function FormCadastrarPiloto({ token }) {
         },
         body: JSON.stringify(payload),
       })
+
       const data = await res.json()
+
       if (res.ok) {
         setFeedback({ ok: true, msg: data.mensagem || 'Piloto cadastrado com sucesso!' })
         setForm(inicial)
@@ -459,7 +494,12 @@ function FormCadastrarPiloto({ token }) {
     }
   }
 
-  const camposObrigatorios = form.driver_ref && form.given_name && form.family_name && form.dob && form.nationality
+  const camposObrigatorios =
+    form.driver_ref &&
+    form.given_name &&
+    form.family_name &&
+    form.date_of_birth &&
+    form.country_id
 
   return (
     <div className="acao-card">
@@ -484,9 +524,10 @@ function FormCadastrarPiloto({ token }) {
             disabled={loading}
           />
         </div>
+
         <div className="form-linha-dupla">
           <div className="form-campo">
-            <label htmlFor="pil-given_name">Nome</label>
+            <label htmlFor="pil-given_name">Given Name</label>
             <input
               id="pil-given_name"
               name="given_name"
@@ -497,8 +538,9 @@ function FormCadastrarPiloto({ token }) {
               disabled={loading}
             />
           </div>
+
           <div className="form-campo">
-            <label htmlFor="pil-family_name">Sobrenome</label>
+            <label htmlFor="pil-family_name">Family Name</label>
             <input
               id="pil-family_name"
               name="family_name"
@@ -510,27 +552,30 @@ function FormCadastrarPiloto({ token }) {
             />
           </div>
         </div>
+
         <div className="form-linha-dupla">
           <div className="form-campo">
-            <label htmlFor="pil-dob">Data de Nascimento</label>
+            <label htmlFor="pil-date_of_birth">Date of Birth</label>
             <input
-              id="pil-dob"
+              id="pil-date_of_birth"
               type="date"
-              name="dob"
-              value={form.dob}
+              name="date_of_birth"
+              value={form.date_of_birth}
               onChange={handleChange}
               required
               disabled={loading}
             />
           </div>
+
           <div className="form-campo">
-            <label htmlFor="pil-nationality">Nacionalidade</label>
+            <label htmlFor="pil-country_id">Country ID</label>
             <input
-              id="pil-nationality"
-              name="nationality"
-              value={form.nationality}
+              id="pil-country_id"
+              name="country_id"
+              type="number"
+              value={form.country_id}
               onChange={handleChange}
-              placeholder="ex: British"
+              placeholder="ex: 76"
               required
               disabled={loading}
             />
@@ -551,16 +596,6 @@ function FormCadastrarPiloto({ token }) {
           {loading ? 'Cadastrando…' : 'Cadastrar Piloto'}
         </button>
       </form>
-    </div>
-  )
-}
-
-// ─── Ações Escuderia ───────────────────────────────────────
-function AcoesEscuderia({ token }) {
-  return (
-    <div className="acoes-grid">
-      <FormBuscarPiloto token={token} />
-      <FormUploadPilotos token={token} />
     </div>
   )
 }
@@ -749,7 +784,7 @@ function FormUploadPilotos({ token }) {
         {/* Formato esperado */}
         <div className="formato-csv">
           <span className="formato-label">Formato esperado (sem cabeçalho):</span>
-          <code className="formato-code">driver_ref, nome, sobrenome, data_nasc, nacionalidade</code>
+          <code className="formato-code">driver_ref, given_name, family_name, date_of_birth, country_id</code>
         </div>
 
         {feedback && (

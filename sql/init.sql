@@ -149,6 +149,7 @@ CREATE TABLE constructors (
     id             SERIAL        PRIMARY KEY,
     constructor_id VARCHAR(100)  UNIQUE NOT NULL,
     name           VARCHAR(200)  NOT NULL,
+    country_id     BIGINT        REFERENCES countries(id),
     nationality    VARCHAR(100),
     wikipedia_url  VARCHAR(500)
 );
@@ -159,6 +160,7 @@ CREATE TABLE drivers (
     driver_ref  VARCHAR(100),
     given_name  VARCHAR(100)  NOT NULL,
     family_name VARCHAR(100)  NOT NULL,
+    country_id  BIGINT        REFERENCES countries(id),
     nationality VARCHAR(100),
     dob         DATE
 );
@@ -392,16 +394,15 @@ SELECT s.id, s.ident, at.id, s.name, s.lat, s.long, s.elev,
 FROM staging_ap s JOIN airport_types at ON at.type = s.type;
 DROP TABLE staging_ap;
 
-\copy circuits (circuit_id, name, lat, long, locality, country, wikipedia_url) FROM '../data/circuits.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
+\copy circuits (circuit_id, name, lat, long, locality, country, wikipedia_url) FROM '../data/circuits.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
 
-\copy constructors (constructor_id, name, nationality, wikipedia_url) FROM '../data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
+\copy constructors (constructor_id, name, nationality, wikipedia_url) FROM '../data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
 
 CREATE TEMP TABLE staging_drivers (
     driver_ref VARCHAR(100), given_name VARCHAR(100), family_name VARCHAR(100),
     nationality VARCHAR(100), dob DATE
 );
-\copy staging_drivers FROM '../data/drivers.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'LATIN1')
-INSERT INTO drivers (driver_id, driver_ref, given_name, family_name, nationality, dob)
+\copy staging_drivers FROM '../data/drivers.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
 SELECT driver_ref, driver_ref, given_name, family_name, nationality, dob
 FROM staging_drivers;
 DROP TABLE staging_drivers;

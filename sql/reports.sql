@@ -93,11 +93,15 @@ $$ LANGUAGE plpgsql;
 -- RELATÓRIO 3 — Admin: hierarquia de corridas
 -- =========================================================
 CREATE OR REPLACE FUNCTION fn_relatorio3_nivel1()
-RETURNS TABLE (total_corridas BIGINT, total_escuderias BIGINT) AS $$
+RETURNS TABLE (
+    total_corridas BIGINT,
+    total_escuderias BIGINT
+) AS $$
 BEGIN
     RETURN QUERY
-    SELECT COUNT(DISTINCT race_id)::BIGINT, COUNT(DISTINCT constructor_id)::BIGINT
-    FROM results;
+    SELECT
+        (SELECT COUNT(*)::BIGINT FROM races),
+        (SELECT COUNT(*)::BIGINT FROM constructors);
 END;
 $$ LANGUAGE plpgsql;
 
