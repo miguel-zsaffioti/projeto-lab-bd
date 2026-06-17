@@ -1,3 +1,11 @@
+// ============================================================
+// TELA DE RELATÓRIOS
+// ============================================================
+// Exibe relatórios diferentes conforme o tipo do usuário logado.
+ // Admin acessa R1, R2 e R3.
+ // Escuderia acessa R4, R5 e busca por sobrenome.
+ // Piloto acessa R6 e R7.
+
 import { useState } from 'react'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8000'

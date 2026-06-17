@@ -1,3 +1,13 @@
+# ============================================================
+# CADASTRO DE ESCUDERIA - ADMIN
+# ============================================================
+# Esta rota é acessível apenas para usuários do tipo Admin.
+# Ela insere uma nova escuderia na tabela CONSTRUCTORS.
+# Após a inserção, uma trigger no banco cria automaticamente
+# o usuário correspondente na tabela USERS, seguindo o padrão:
+# login = <constructor_ref>_c
+# senha = <constructor_ref>
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from database import get_conn
 from routes.auth import requer_permissao
@@ -18,6 +28,9 @@ def _buscar_nome_pais(cur, country_id):
     if country_id is None:
         return None
 
+    # Validação do country_id recebido no formulário.
+    # Isso garante que a escuderia seja cadastrada apenas
+    # com um país existente na tabela COUNTRIES.
     cur.execute(
         "SELECT COALESCE(nationality, name) FROM countries WHERE id = %s",
         (country_id,)
@@ -77,6 +90,10 @@ def cadastrar_escuderia(
         conn.rollback()
         raise
 
+    # Tratamento de erro de chave única.
+    # O PostgreSQL impede constructor_ref duplicado.
+    # Aqui transformamos o erro técnico do banco em uma mensagem
+    # amigável para o usuário no frontend.
     except psycopg2.Error as e:
         conn.rollback()
 
@@ -96,7 +113,13 @@ def cadastrar_escuderia(
     finally:
         conn.close()
 
-
+# ============================================================
+# CADASTRO DE PILOTO - ADMIN
+# ============================================================
+# Esta rota insere um novo piloto na tabela DRIVERS.
+# A criação do usuário do piloto não é feita manualmente aqui.
+# Ela é responsabilidade da trigger no banco, garantindo
+# consistência mesmo que o piloto seja criado por outro caminho.
 @router.post("/admin/pilotos", status_code=201)
 def cadastrar_piloto(
     dados: PilotoCreate,
@@ -163,7 +186,10 @@ def cadastrar_piloto(
     finally:
         conn.close()
 
-
+# Consulta de piloto por sobrenome limitada à escuderia logada.
+# A relação piloto-escuderia é verificada pela tabela RESULTS,
+# conforme sugerido no enunciado.
+# Assim, a escuderia só visualiza pilotos que já correram por ela.
 @router.get("/escuderia/pilotos/busca")
 def buscar_piloto_por_sobrenome(
     sobrenome: str,
@@ -212,7 +238,17 @@ def buscar_piloto_por_sobrenome(
     finally:
         conn.close()
 
-
+# ============================================================
+# IMPORTAÇÃO DE PILOTOS POR CSV - ESCUDERIA
+# ============================================================
+# Esta rota permite que uma escuderia envie um arquivo CSV
+# com vários pilotos.
+# O formato esperado é:
+# driver_ref, given_name, family_name, date_of_birth, country_id
+#
+# Antes da inserção, verificamos se já existe piloto com o
+# mesmo nome e sobrenome. Se existir, a operação é cancelada.
+# A trigger da tabela DRIVERS cria automaticamente o usuário.
 @router.post("/escuderia/pilotos/upload", status_code=201)
 def upload_pilotos_csv(
     arquivo: UploadFile = File(...),

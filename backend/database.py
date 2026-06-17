@@ -1,3 +1,10 @@
+# ============================================================
+# CONEXÃO COM O BANCO DE DADOS
+# ============================================================
+# Centraliza a criação da conexão com o PostgreSQL.
+# As rotas chamam get_conn() sempre que precisam executar SQL.
+# Isso evita repetir configurações de conexão em vários arquivos.
+
 import os
 import psycopg2
 import psycopg2.extras

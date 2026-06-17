@@ -1,10 +1,22 @@
+# ============================================================
+# ROTAS DE RELATÓRIOS
+# ============================================================
+# Este arquivo expõe as rotas dos relatórios exigidos no projeto.
+# Cada rota valida o tipo do usuário logado, chama uma função SQL
+# específica no PostgreSQL e retorna os dados em formato JSON
+# para o frontend.
+#
+# A lógica pesada de consulta fica no banco de dados:
+# joins, agregações, filtros, funções janela e views.
+# O backend fica responsável por autenticação, permissão
+# e transformação do resultado em JSON.
+
 from fastapi import APIRouter, Depends, HTTPException
 from database import get_conn
 from routes.auth import obter_usuario_atual
 import psycopg2.extras
 
 router = APIRouter(prefix="/relatorios")
-
 
 def _cur(conn):
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
@@ -25,6 +37,8 @@ def _exige_piloto(usuario):
 
 
 # ── Relatório 1 — Admin ────────────────────────────────────
+# Chama função SQL que conta resultados por status em toda a base.
+# Apenas o administrador pode acessar, pois é uma visão global.
 @router.get("/1")
 def relatorio1(usuario: dict = Depends(obter_usuario_atual)):
     _exige_admin(usuario)
@@ -40,6 +54,9 @@ def relatorio1(usuario: dict = Depends(obter_usuario_atual)):
 
 
 # ── Relatório 2 — Admin ────────────────────────────────────
+# Recebe o nome de uma cidade e chama a função SQL que calcula
+# aeroportos brasileiros próximos em até 100 km.
+# O cálculo de distância é feito no banco.
 @router.get("/2/{cidade}")
 def relatorio2(cidade: str, usuario: dict = Depends(obter_usuario_atual)):
     _exige_admin(usuario)
@@ -59,7 +76,11 @@ def relatorio2(cidade: str, usuario: dict = Depends(obter_usuario_atual)):
 
 
 # ── Relatório 3 — Admin ────────────────────────────────────
-# ── Relatório 3 — Admin ────────────────────────────────────
+# Implementado em níveis para representar a hierarquia pedida:
+# nível 1: totais gerais;
+# nível 2: agrupamento por circuito;
+# nível 3: detalhes das corridas de um circuito.
+# Também retorna a lista de escuderias com quantidade de pilotos.
 @router.get("/3")
 def relatorio3(usuario: dict = Depends(obter_usuario_atual)):
     _exige_admin(usuario)
@@ -99,6 +120,10 @@ def relatorio3_nivel3(circuito: str, usuario: dict = Depends(obter_usuario_atual
 
 
 # ── Relatório 4 — Escuderia ────────────────────────────────
+# Relatório 4 - Escuderia.
+# O backend usa o id_original do usuário logado para descobrir
+# qual escuderia está autenticada.
+# Assim, a função SQL recebe apenas o constructor_id da escuderia logada.
 @router.get("/4")
 def relatorio4(usuario: dict = Depends(obter_usuario_atual)):
     _exige_escuderia(usuario)
@@ -139,6 +164,10 @@ def relatorio5(usuario: dict = Depends(obter_usuario_atual)):
 
 
 # ── Relatório 6 — Piloto ───────────────────────────────────
+# O backend não permite escolher qualquer piloto.
+# Ele usa o id_original do token para descobrir o piloto logado
+# e chama a função SQL apenas com esse driver_id.
+# Isso garante que o piloto visualize somente seus próprios dados.
 @router.get("/6")
 def relatorio6(usuario: dict = Depends(obter_usuario_atual)):
     _exige_piloto(usuario)

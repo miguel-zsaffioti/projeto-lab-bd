@@ -1,5 +1,21 @@
+-- =========================================================
+-- INIT.SQL — criação, carga inicial, autenticação e auditoria
+-- =========================================================
+-- Este arquivo monta a base usada pela aplicação Ciber Track.
+-- Conceitos destacados para avaliação:
+-- 1) criação e normalização de tabelas;
+-- 2) carga de arquivos CSV/TSV com \copy;
+-- 3) autenticação com senha protegida via pgcrypto;
+-- 4) triggers para criar/atualizar usuários automaticamente;
+-- 5) tabela de auditoria USERS_LOG para login/logout;
+-- 6) índices auxiliares para filtros e junções frequentes.
+
+-- AUTENTICAÇÃO: pgcrypto fornece crypt() e gen_salt(), usados para
+-- guardar senha protegida. Assim, a tabela USERS não armazena senha em texto puro.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Recriação limpa da base.
+-- O CASCADE remove objetos dependentes, evitando erro ao rodar o script novamente.
 DROP TABLE IF EXISTS users_log             CASCADE;
 DROP TABLE IF EXISTS users                 CASCADE;
 DROP TABLE IF EXISTS constructor_standings CASCADE;
@@ -21,6 +37,12 @@ DROP TABLE IF EXISTS regions               CASCADE;
 DROP TABLE IF EXISTS countries             CASCADE;
 DROP TABLE IF EXISTS continents            CASCADE;
 
+-- =========================================================
+-- TABELAS GEOGRÁFICAS
+-- =========================================================
+-- Guardam continentes, países, cidades e dados auxiliares do GeoNames.
+-- Essas tabelas são usadas principalmente no Relatório 2, que cruza
+-- cidade brasileira com aeroportos próximos.
 CREATE TABLE continents (
     code CHAR(2)     PRIMARY KEY,
     name VARCHAR(50) NOT NULL
@@ -102,6 +124,12 @@ CREATE TABLE iso_language_codes (
     language_name VARCHAR(200)
 );
 
+-- =========================================================
+-- TABELAS DE AEROPORTOS
+-- =========================================================
+-- airport_types normaliza o tipo do aeroporto; airports armazena
+-- coordenadas, códigos IATA/ICAO e município. Esses dados alimentam
+-- a view vw_aeroportos_brasil e o Relatório 2.
 CREATE TABLE airport_types (
     id   SERIAL      PRIMARY KEY,
     type VARCHAR(50) NOT NULL UNIQUE
@@ -130,6 +158,12 @@ CREATE TABLE airports (
     keywords          TEXT
 );
 
+-- =========================================================
+-- TABELAS DA FÓRMULA 1
+-- =========================================================
+-- seasons, circuits, constructors, drivers, races e results formam
+-- o núcleo da base F1. A tabela RESULTS é a principal ligação entre
+-- piloto, escuderia e corrida, por isso aparece na maioria dos relatórios.
 CREATE TABLE seasons (
     year INTEGER PRIMARY KEY
 );
@@ -219,6 +253,14 @@ CREATE TABLE constructor_standings (
     wins           INTEGER
 );
 
+-- =========================================================
+-- AUTENTICAÇÃO E CONTROLE DE ACESSO
+-- =========================================================
+-- USERS representa os usuários da aplicação.
+-- login: único, usado na tela inicial.
+-- password: hash da senha, nunca texto puro.
+-- tipo: define permissões ('Admin', 'Escuderia' ou 'Piloto').
+-- id_original: liga o usuário ao registro real em DRIVERS ou CONSTRUCTORS.
 CREATE TABLE users (
     userid      SERIAL       PRIMARY KEY,
     login       VARCHAR(150) NOT NULL UNIQUE,
@@ -227,6 +269,8 @@ CREATE TABLE users (
     id_original INTEGER      DEFAULT NULL
 );
 
+-- AUDITORIA: registra ações de acesso exigidas pelo enunciado.
+-- O backend insere LOGIN e LOGOUT nesta tabela a cada entrada/saída.
 CREATE TABLE users_log (
     id         SERIAL       PRIMARY KEY,
     userid     INTEGER      NOT NULL REFERENCES users(userid),
@@ -234,6 +278,9 @@ CREATE TABLE users_log (
     data_hora  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
+-- FUNÇÃO: centraliza a geração de hash das senhas.
+-- Usa blowfish ('bf') via pgcrypto. Isso evita repetir crypt/gen_salt
+-- nas triggers e deixa claro onde a senha protegida é criada.
 CREATE OR REPLACE FUNCTION gerar_senha_hash(senha TEXT)
 RETURNS VARCHAR(64) AS $$
 BEGIN
@@ -241,6 +288,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- TRIGGER/FUNÇÃO: cria automaticamente o usuário de um piloto.
+-- Padrão do enunciado: login = <driver_ref>_d e senha = <driver_ref>.
+-- Se o login já existir, a função cancela a operação para evitar inconsistência.
 CREATE OR REPLACE FUNCTION trg_criar_usuario_piloto()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -261,10 +311,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- TRIGGER: executada após INSERT em DRIVERS.
+-- Garante que todo piloto cadastrado também exista em USERS.
 CREATE TRIGGER trg_after_insert_driver
     AFTER INSERT ON drivers
     FOR EACH ROW EXECUTE FUNCTION trg_criar_usuario_piloto();
 
+-- TRIGGER/FUNÇÃO: mantém USERS sincronizada quando o identificador
+-- do piloto é alterado em DRIVERS.
 CREATE OR REPLACE FUNCTION trg_atualizar_usuario_piloto()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -287,10 +341,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- TRIGGER: executada após UPDATE em DRIVERS.
+-- Atualiza login/senha do usuário se o driver_id mudar.
 CREATE TRIGGER trg_after_update_driver
     AFTER UPDATE ON drivers
     FOR EACH ROW EXECUTE FUNCTION trg_atualizar_usuario_piloto();
 
+-- TRIGGER/FUNÇÃO: cria automaticamente o usuário de uma escuderia.
+-- Padrão do enunciado: login = <constructor_ref>_c e senha = <constructor_ref>.
 CREATE OR REPLACE FUNCTION trg_criar_usuario_escuderia()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -311,10 +369,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- TRIGGER: executada após INSERT em CONSTRUCTORS.
+-- Garante que toda escuderia cadastrada também exista em USERS.
 CREATE TRIGGER trg_after_insert_constructor
     AFTER INSERT ON constructors
     FOR EACH ROW EXECUTE FUNCTION trg_criar_usuario_escuderia();
 
+-- TRIGGER/FUNÇÃO: mantém USERS sincronizada quando o identificador
+-- da escuderia é alterado em CONSTRUCTORS.
 CREATE OR REPLACE FUNCTION trg_atualizar_usuario_escuderia()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -337,15 +399,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- TRIGGER: executada após UPDATE em CONSTRUCTORS.
+-- Atualiza login/senha do usuário se o constructor_id mudar.
 CREATE TRIGGER trg_after_update_constructor
     AFTER UPDATE ON constructors
     FOR EACH ROW EXECUTE FUNCTION trg_atualizar_usuario_escuderia();
 
+-- Usuário administrador fixo exigido pelo enunciado.
+-- Login/senha de teste: admin/admin. A senha também é salva com hash.
 INSERT INTO users (login, password, tipo, id_original)
 VALUES ('admin', crypt('admin', gen_salt('bf')), 'Admin', NULL);
 
+-- =========================================================
+-- CARGA DOS DADOS
+-- =========================================================
+-- Define UTF8 para preservar acentos em nomes de pilotos, circuitos,
+-- cidades e países.
 SET client_encoding TO 'UTF8';
 
+-- STAGING: países são carregados primeiro em tabela temporária porque
+-- o CSV vem em texto. Depois convertemos id para BIGINT e inserimos na tabela final.
 CREATE TEMP TABLE staging_countries (
     id TEXT, code TEXT, name TEXT, continent_code TEXT, wikipedia_link TEXT, keywords TEXT
 );
@@ -358,6 +431,8 @@ DROP TABLE staging_countries;
 
 \copy time_zones (country_code, name, gmt_offset, dst_offset, raw_offset) FROM '../data/timeZones.tsv' DELIMITER E'\t' CSV HEADER
 
+-- STAGING: featureCodes vem com o código composto (ex.: P.PPL).
+-- SPLIT_PART separa classe e código, normalizando os dados na tabela feature_codes.
 CREATE TEMP TABLE staging_fc (code VARCHAR(15), name VARCHAR(200), description TEXT);
 \copy staging_fc FROM '../data/featureCodes_en.tsv' DELIMITER E'\t' CSV
 INSERT INTO feature_codes (feature_class, feature_code, name, description)
@@ -371,6 +446,9 @@ DROP TABLE staging_fc;
 
 \copy iso_language_codes (iso_639_3, iso_639_2, iso_639_1, language_name) FROM '../data/iso-languagecodes.tsv' DELIMITER E'\t' CSV HEADER
 
+-- STAGING: airports.csv contém o tipo do aeroporto como texto.
+-- Primeiro carregamos em staging_ap, depois normalizamos o tipo em airport_types
+-- e gravamos airports usando a chave estrangeira airport_type_id.
 CREATE TEMP TABLE staging_ap (
     id BIGINT, ident VARCHAR(10), type VARCHAR(50), name VARCHAR(300),
     lat NUMERIC, long NUMERIC, elev INT, cont CHAR(2), country CHAR(2),
@@ -399,6 +477,9 @@ DROP TABLE staging_ap;
 
 \copy constructors (constructor_id, name, nationality, wikipedia_url) FROM '../data/constructors.csv' WITH (FORMAT csv, DELIMITER ',', HEADER true, ENCODING 'UTF8')
 
+-- STAGING: drivers.csv usa driver_ref. No esquema final, guardamos
+-- driver_id e driver_ref para manter compatibilidade com o enunciado e com a base.
+-- A inserção em DRIVERS dispara automaticamente a trigger de criação de usuário.
 CREATE TEMP TABLE staging_drivers (
     driver_ref VARCHAR(100),
     given_name VARCHAR(100),
@@ -421,6 +502,8 @@ FROM staging_drivers;
 
 DROP TABLE staging_drivers;
 
+-- STAGING: races.csv carrega corridas. A tabela seasons é preenchida
+-- automaticamente com os anos encontrados nas corridas.
 CREATE TEMP TABLE staging_races (rid VARCHAR(20), sea INTEGER, rou INTEGER, rna VARCHAR(200), rda DATE, rti TIME, cid VARCHAR(100));
 \copy staging_races FROM '../data/races.csv' DELIMITER ',' CSV HEADER
 INSERT INTO seasons (year) SELECT DISTINCT sea FROM staging_races ON CONFLICT (year) DO NOTHING;
@@ -428,6 +511,8 @@ INSERT INTO races (race_id, season, round, race_name, race_date, race_time, circ
 SELECT rid, sea, rou, rna, rda, rti, cid FROM staging_races;
 DROP TABLE staging_races;
 
+-- STAGING: alguns campos numéricos vêm como texto ou vazios.
+-- CASE/NULLIF evitam erro de conversão durante a carga.
 CREATE TEMP TABLE staging_qualy (
     race_id VARCHAR(20), driver_id VARCHAR(100), constructor_id VARCHAR(100),
     position_text TEXT, q1 VARCHAR(20), q2 VARCHAR(20), q3 VARCHAR(20)
@@ -440,6 +525,9 @@ SELECT race_id, driver_id, constructor_id,
 FROM staging_qualy;
 DROP TABLE staging_qualy;
 
+-- STAGING: results é a principal tabela analítica da aplicação.
+-- Campos como grid, position, points e laps são tratados com NULLIF/CASE
+-- para converter texto vazio em NULL e preservar a carga.
 CREATE TEMP TABLE staging_results (
     race_id VARCHAR(20), driver_id VARCHAR(100), constructor_id VARCHAR(100),
     grid_text TEXT, pos_text TEXT, position_order_text TEXT,
@@ -457,6 +545,7 @@ SELECT race_id, driver_id, constructor_id,
 FROM staging_results;
 DROP TABLE staging_results;
 
+-- STAGING: classificação de pilotos por temporada/rodada.
 CREATE TEMP TABLE staging_ds (
     season_text TEXT, round_text TEXT, driver_id VARCHAR(100),
     pos_text TEXT, points_text TEXT, wins_text TEXT
@@ -473,6 +562,7 @@ SELECT
 FROM staging_ds;
 DROP TABLE staging_ds;
 
+-- STAGING: classificação de escuderias por temporada/rodada.
 CREATE TEMP TABLE staging_cs (
     season_text TEXT, round_text TEXT, constructor_id VARCHAR(100),
     pos_text TEXT, points_text TEXT, wins_text TEXT
@@ -489,6 +579,12 @@ SELECT
 FROM staging_cs;
 DROP TABLE staging_cs;
 
+-- =========================================================
+-- ÍNDICES BÁSICOS
+-- =========================================================
+-- Índices auxiliam filtros e junções frequentes no backend e nos relatórios.
+-- Ex.: login é usado em toda autenticação; driver_id, constructor_id e race_id
+-- aparecem constantemente nos joins com RESULTS.
 CREATE INDEX IF NOT EXISTS idx_users_login        ON users (login);
 CREATE INDEX IF NOT EXISTS idx_users_log_userid   ON users_log (userid);
 CREATE INDEX IF NOT EXISTS idx_results_driver     ON results (driver_id);
@@ -497,6 +593,8 @@ CREATE INDEX IF NOT EXISTS idx_results_race       ON results (race_id);
 CREATE INDEX IF NOT EXISTS idx_airports_country   ON airports (country_code);
 CREATE INDEX IF NOT EXISTS idx_airports_type      ON airports (airport_type_id);
 
+-- Consulta final de conferência: mostra quantos registros foram carregados
+-- em cada tabela principal, facilitando validação após rodar o script.
 SELECT tabela, registros FROM (
     SELECT 'continents'   AS tabela, COUNT(*) AS registros FROM continents   UNION ALL
     SELECT 'countries',              COUNT(*) FROM countries                  UNION ALL

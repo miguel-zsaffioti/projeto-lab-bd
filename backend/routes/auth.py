@@ -1,3 +1,14 @@
+# ============================================================
+# AUTENTICAÇÃO
+# ============================================================
+# Esta rota recebe login e senha enviados pelo frontend.
+# A senha digitada não é comparada em texto puro.
+# O PostgreSQL aplica crypt(senha_digitada, password_salvo)
+# para comparar com o hash armazenado na tabela USERS.
+# Quando o login é válido, geramos um token JWT contendo:
+# userid, login, tipo e id_original.
+# Esses dados serão usados nas demais rotas para controlar permissões.
+
 import os
 import jwt
 from datetime import datetime, timedelta, timezone
@@ -41,6 +52,9 @@ def login(req: LoginRequest):
     conn = get_conn()
     try:
         with conn.cursor(cursor_factory=__import__('psycopg2').extras.RealDictCursor) as cur:
+            # Consulta explícita à tabela USERS.
+            # O uso de crypt(%s, password) permite validar a senha digitada
+            # contra o hash salvo no banco, sem armazenar senha em texto puro.
             cur.execute(
                 "SELECT * FROM users WHERE login = %s AND password = crypt(%s, password)",
                 (req.login, req.senha)
@@ -50,12 +64,18 @@ def login(req: LoginRequest):
             if not usuario:
                 raise HTTPException(status_code=401, detail="Login ou senha inválidos.")
 
+            # Auditoria de acesso exigida no enunciado.
+            # Sempre que um login é realizado com sucesso, registramos
+            # o usuário, a ação LOGIN e a data/hora na tabela USERS_LOG.
             cur.execute(
                 "INSERT INTO users_log (userid, acao, data_hora) VALUES (%s, 'LOGIN', %s)",
                 (usuario["userid"], datetime.now())
             )
             conn.commit()
 
+            # Esta função valida o token JWT enviado pelo frontend.
+            # Ela é usada como dependência nas rotas protegidas.
+            # Se o token for inválido ou estiver ausente, o acesso é negado.
             token = criar_token({
                 "userid": usuario["userid"],
                 "login": usuario["login"],
@@ -89,6 +109,9 @@ def logout(usuario: dict = Depends(obter_usuario_atual)):
     finally:
         conn.close()
 
+# Controle de acesso por tipo de usuário.
+# Cada rota informa quais perfis podem acessá-la.
+# Exemplo: apenas Admin pode cadastrar escuderias e pilotos.
 def requer_permissao(tipos_permitidos: list[str]):
     def verificador(usuario: dict = Depends(obter_usuario_atual)):
         if usuario.get("tipo", "").lower() not in tipos_permitidos:

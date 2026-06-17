@@ -97,6 +97,9 @@ function Navbar({ usuario, tela, setTela, onLogout }) {
 }
 
 // ─── Tela Login ────────────────────────────────────────────
+// Envia login e senha para o backend.
+// Se a autenticação for válida, o backend retorna um JWT.
+// O token é salvo no localStorage para manter a sessão ativa.
 function TelaLogin({ onLogin }) {
   const [login, setLogin]     = useState('')
   const [senha, setSenha]     = useState('')
@@ -278,6 +281,9 @@ function DashboardPiloto({ dados }) {
 // ═══════════════════════════════════════════════════════════
 // ─── TELA DE AÇÕES ─────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════
+// Renderização condicional por perfil de usuário.
+// Admin, Escuderia e Piloto visualizam telas diferentes,
+// respeitando as permissões definidas no backend.
 function Acoes({ token, usuario }) {
   const tipo = (usuario.tipo || '').toLowerCase()
 
@@ -379,7 +385,7 @@ function FormCadastrarEscuderia({ token }) {
 
       <form className="acao-form" onSubmit={handleSubmit}>
         <div className="form-campo">
-          <label htmlFor="esc-constructor_ref">Constructor Ref</label>
+          <label htmlFor="esc-constructor_ref">Referência da Escuderia (constructor_ref)</label>
           <input
             id="esc-constructor_ref"
             name="constructor_ref"
@@ -405,14 +411,14 @@ function FormCadastrarEscuderia({ token }) {
         </div>
 
         <div className="form-campo">
-          <label htmlFor="esc-country_id">Country ID</label>
+          <label htmlFor="esc-country_id">ID do País (country_id)</label>
           <input
             id="esc-country_id"
             name="country_id"
             type="number"
             value={form.country_id}
             onChange={handleChange}
-            placeholder="ex: 76"
+            placeholder="ex: 302791"
             required
             disabled={loading}
           />
@@ -522,7 +528,7 @@ function FormCadastrarPiloto({ token }) {
 
       <form className="acao-form" onSubmit={handleSubmit}>
         <div className="form-campo">
-          <label htmlFor="pil-driver_ref">Driver Ref</label>
+          <label htmlFor="pil-driver_ref">Referência do Piloto (driver_ref)</label>
           <input
             id="pil-driver_ref"
             name="driver_ref"
@@ -536,7 +542,7 @@ function FormCadastrarPiloto({ token }) {
 
         <div className="form-linha-dupla">
           <div className="form-campo">
-            <label htmlFor="pil-given_name">Given Name</label>
+            <label htmlFor="pil-given_name">Nome</label>
             <input
               id="pil-given_name"
               name="given_name"
@@ -549,7 +555,7 @@ function FormCadastrarPiloto({ token }) {
           </div>
 
           <div className="form-campo">
-            <label htmlFor="pil-family_name">Family Name</label>
+            <label htmlFor="pil-family_name">Sobrenome</label>
             <input
               id="pil-family_name"
               name="family_name"
@@ -564,7 +570,7 @@ function FormCadastrarPiloto({ token }) {
 
         <div className="form-linha-dupla">
           <div className="form-campo">
-            <label htmlFor="pil-date_of_birth">Date of Birth</label>
+            <label htmlFor="pil-date_of_birth">Data de Nascimento</label>
             <input
               id="pil-date_of_birth"
               type="date"
@@ -577,14 +583,14 @@ function FormCadastrarPiloto({ token }) {
           </div>
 
           <div className="form-campo">
-            <label htmlFor="pil-country_id">Country ID</label>
+            <label htmlFor="pil-country_id">ID do País (country_id)</label>
             <input
               id="pil-country_id"
               name="country_id"
               type="number"
               value={form.country_id}
               onChange={handleChange}
-              placeholder="ex: 76"
+              placeholder="ex: 302791"
               required
               disabled={loading}
             />

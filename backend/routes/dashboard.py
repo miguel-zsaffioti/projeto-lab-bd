@@ -5,11 +5,16 @@ import psycopg2.extras
 
 router = APIRouter()
 
-
-# -------------------------------------------------------
-# GET /dashboard
-# Retorna dados específicos por tipo de usuário
-# -------------------------------------------------------
+# ============================================================
+# DASHBOARD POR TIPO DE USUÁRIO
+# ============================================================
+# Esta rota monta dashboards diferentes conforme o tipo do usuário:
+# Admin: visão geral da base;
+# Escuderia: dados apenas da escuderia logada;
+# Piloto: dados apenas do piloto logado.
+#
+# O campo id_original da tabela USERS é usado para ligar
+# o usuário autenticado ao registro original em DRIVERS ou CONSTRUCTORS.
 @router.get("/dashboard")
 def dashboard(usuario: dict = Depends(obter_usuario_atual)):
     tipo = usuario.get("tipo", "").lower()
@@ -27,6 +32,9 @@ def dashboard(usuario: dict = Depends(obter_usuario_atual)):
 # -------------------------------------------------------
 # Dashboard Admin
 # -------------------------------------------------------
+# Dashboard do administrador.
+# Retorna dados globais, como total de pilotos, escuderias,
+# temporadas e informações da temporada mais recente.
 def _dashboard_admin():
     conn = get_conn()
     try:
@@ -104,6 +112,10 @@ def _dashboard_admin():
 # -------------------------------------------------------
 # Dashboard Escuderia
 # -------------------------------------------------------
+# Dashboard da escuderia.
+# Primeiro buscamos o constructor_id correspondente ao usuário logado.
+# Depois chamamos uma função SQL armazenada que calcula
+# vitórias, pilotos diferentes, primeiro ano e último ano.
 def _dashboard_escuderia(id_original: int):
     if not id_original:
         raise HTTPException(status_code=400, detail="ID da escuderia não encontrado.")
@@ -143,6 +155,9 @@ def _dashboard_escuderia(id_original: int):
 # -------------------------------------------------------
 # Dashboard Piloto
 # -------------------------------------------------------
+# Dashboard do piloto.
+# O piloto é identificado pelo id_original presente no token.
+# As funções SQL retornam apenas estatísticas desse piloto.
 def _dashboard_piloto(id_original: int):
     if not id_original:
         raise HTTPException(status_code=400, detail="ID do piloto não encontrado.")
